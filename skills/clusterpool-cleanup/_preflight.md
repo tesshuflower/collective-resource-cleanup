@@ -15,4 +15,4 @@ Run these steps at the start of every clusterpool-cleanup skill:
    - If it fails: run `KUBECONFIG=~/.kube/collective oc login --web <CLUSTER_URL>` to authenticate via browser, then run `oc whoami` again to confirm
    - If it still fails: STOP (unless the skill explicitly says collective access is a soft dependency)
 5. Get available namespaces: run `KUBECONFIG=~/.kube/collective oc projects -q`
-   - Show the list to the user and ask them to choose. Store as NAMESPACE.
+   - Present them as a numbered menu (1, 2, 3...) and wait for the user to type a number to select one. Store the selected namespace as NAMESPACE.
