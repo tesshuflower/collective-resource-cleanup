@@ -9,10 +9,7 @@ Clean up stuck ClusterDeployment objects on the collective cluster.
 
 ## Pre-flight
 
-1. Ask: "Collective cluster namespace? (default: app):" — store as NAMESPACE
-2. Determine repo root: run `git rev-parse --show-toplevel` and store as REPO_ROOT
-3. Run: `kubectl get clusterpool -n <NAMESPACE>`
-   - If it fails: say "Please log in first: oc login <api-url from kubectl config view>" — STOP
+Follow the steps in `skills/clusterpool-cleanup/_preflight.md` to set REPO_ROOT, KUBECONFIG, authenticate, and determine NAMESPACE.
 
 ## Scan
 

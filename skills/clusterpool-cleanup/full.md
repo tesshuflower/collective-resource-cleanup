@@ -15,11 +15,11 @@ Run all four collective cleanup steps in sequence.
 
 ## Shared state
 
-Track these across steps to avoid re-prompting:
-- **NAMESPACE** — asked once, reused for all steps
+Run the common pre-flight once at the start by following `skills/clusterpool-cleanup/_preflight.md`. This sets REPO_ROOT, KUBECONFIG, authenticates, and determines NAMESPACE. Do not re-run pre-flight for each step.
+
+Also track these across steps:
 - **WRITE_PROFILE** — asked in cc-resource-cleanup, reused for cleanup-orphans
 - **READ_PROFILE** — asked in investigate-orphans, reused as safety re-check profile in cleanup-orphans
-- **REPO_ROOT** — determined once via `git rev-parse --show-toplevel`
 
 ## Execution
 

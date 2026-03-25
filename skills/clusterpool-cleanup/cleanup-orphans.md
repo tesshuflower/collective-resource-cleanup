@@ -9,11 +9,8 @@ Act on findings from a prior `investigate-orphans` run.
 
 ## Pre-flight
 
-1. Determine repo root: run `git rev-parse --show-toplevel` — store as REPO_ROOT
-2. Ask: "Collective cluster namespace? (default: app):" — store as NAMESPACE
-3. Verify collective cluster access: `kubectl get clusterpool -n <NAMESPACE>`
-   - If it fails: "Please log in first: oc login <api-url from kubectl config view>" — STOP
-4. Load manifest:
+1. Follow the steps in `skills/clusterpool-cleanup/_preflight.md` to set REPO_ROOT, KUBECONFIG, authenticate, and determine NAMESPACE.
+2. Load manifest:
    - Check if `/tmp/clusterpool-cleanup-manifest.json` exists
    - If not: ask "Path to manifest file?"
    - Read and parse the manifest

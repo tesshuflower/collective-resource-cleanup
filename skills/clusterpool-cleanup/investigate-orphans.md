@@ -9,14 +9,12 @@ Autonomously investigate orphaned AWS resources. Read-only — produces a report
 
 ## Pre-flight
 
-1. Determine repo root: run `git rev-parse --show-toplevel` — store as REPO_ROOT
-2. Ask: "AWS read-only profile to use (e.g. aws-acm-dev11-readonly):" — store as PROFILE
-3. Verify: `aws sts get-caller-identity --profile <PROFILE>`
+1. Ask: "AWS read-only profile to use (e.g. aws-acm-dev11-readonly):" — store as PROFILE
+2. Verify: `aws sts get-caller-identity --profile <PROFILE>`
    - If it fails: "AWS credentials invalid or expired. Please refresh and retry." — STOP
-4. Ask: "Collective cluster namespace? (default: app):" — store as NAMESPACE
-5. Attempt collective cluster access: `kubectl get clusterpool -n <NAMESPACE>`
-   - If it fails: warn "Collective cluster unreachable — ClusterDeployment cross-referencing will be skipped. AWS investigation will still run." Continue.
-   - If available: store live ClusterDeployment list (run `scripts/scan-cds.sh --namespace <NAMESPACE>` to get stuck CDs, and `kubectl get clusterdeployment --all-namespaces -l cluster.open-cluster-management.io/clusterset=<NAMESPACE> -o json` for all CDs including live ones)
+3. Follow the steps in `skills/clusterpool-cleanup/_preflight.md` to set REPO_ROOT, KUBECONFIG, authenticate, and determine NAMESPACE.
+   - Collective cluster access is a **soft dependency** for this skill: if login fails, warn "Collective cluster unreachable — ClusterDeployment cross-referencing will be skipped. AWS investigation will still run." and continue with NAMESPACE unset.
+   - If available: load live ClusterDeployment list by running `scripts/scan-cds.sh --namespace <NAMESPACE>` for stuck CDs, and `KUBECONFIG=~/.kube/collective kubectl get clusterdeployment --all-namespaces -l cluster.open-cluster-management.io/clusterset=<NAMESPACE> -o json` for all CDs.
 
 ## Load knowledge base
 

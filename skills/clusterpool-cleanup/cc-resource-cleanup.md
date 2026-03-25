@@ -9,11 +9,9 @@ Clean up orphaned AWS tagged resource groups from collective ClusterPool deploym
 
 ## Pre-flight
 
-1. Ask: "Collective cluster namespace? (default: app):" — store as NAMESPACE
-2. Determine repo root: run `git rev-parse --show-toplevel` — store as REPO_ROOT
-3. Verify collective cluster access: `kubectl get clusterpool -n <NAMESPACE>`
-   - If it fails: "Please log in first: oc login <api-url from kubectl config view>" — STOP
-4. Check hiveutil: look for `~/DEV/openshift/hive/bin/hiveutil`
+Follow the steps in `skills/clusterpool-cleanup/_preflight.md` to set REPO_ROOT, KUBECONFIG, authenticate, and determine NAMESPACE.
+
+Then: look for `~/DEV/openshift/hive/bin/hiveutil`
    - If not found: ask "Path to hiveutil binary?" — store as HIVEUTIL_PATH
    - If found: store path as HIVEUTIL_PATH
 5. Check if hiveutil is up to date:
