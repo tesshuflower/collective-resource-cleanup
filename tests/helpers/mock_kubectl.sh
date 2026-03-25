@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Mock kubectl for testing.
 kubectl() {
-  local response_file="${MOCK_KUBECTL_RESPONSES}/${*// /_}.json"
+  local key="$*"
+  key="${key// /_}"
+  local response_file="${MOCK_KUBECTL_RESPONSES}/${key}.json"
   if [[ -f "$response_file" ]]; then
     cat "$response_file"
     return 0

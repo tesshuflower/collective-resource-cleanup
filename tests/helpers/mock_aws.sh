@@ -2,7 +2,8 @@
 # Mock AWS CLI for testing. Set MOCK_AWS_RESPONSES dir before sourcing.
 # Fixture filename encoding: spaces→_, /→_, ,→_, =→_
 aws() {
-  local key="${*// /_}"
+  local key="$*"
+  key="${key// /_}"
   key="${key//\//_}"
   key="${key//,/_}"
   key="${key//=/_}"
