@@ -31,12 +31,15 @@ Skills are invoked through Claude Code using the `/clusterpool-cleanup:*` prefix
 
 ## Setup
 
-Register the skills by symlinking them into the Claude Code superpowers plugin directory, then restart Claude Code (or reload skills):
+Clone the repo and open Claude Code from within it — no installation needed:
 
 ```bash
-PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/claude-plugins-official/superpowers/*/skills 2>/dev/null | tail -1)
-ln -sf "$(pwd)/skills/clusterpool-cleanup" "${PLUGIN_DIR}/clusterpool-cleanup"
+git clone https://github.com/tesshuflower/collective-resource-cleanup
+cd collective-resource-cleanup
+claude
 ```
+
+The `CLAUDE.md` in the repo root tells Claude where the skills live. They are available immediately.
 
 ## Recommended workflow
 
