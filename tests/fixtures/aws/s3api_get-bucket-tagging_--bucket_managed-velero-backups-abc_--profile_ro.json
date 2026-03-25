@@ -1,0 +1,1 @@
+{"TagSet":[{"Key":"velero.io/infrastructureName","Value":"rosa-abc123"},{"Key":"velero.io/backup-location","Value":"default"}]}

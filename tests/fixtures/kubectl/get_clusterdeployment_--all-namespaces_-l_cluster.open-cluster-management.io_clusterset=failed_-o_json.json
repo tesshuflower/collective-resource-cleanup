@@ -1,0 +1,3 @@
+{"items":[
+  {"metadata":{"name":"cd-dead","namespace":"cd-dead"},"spec":{"clusterMetadata":{"infraID":"infra-dead"}},"status":{"provisionStatus":"DeprovisionFailed"}}
+]}

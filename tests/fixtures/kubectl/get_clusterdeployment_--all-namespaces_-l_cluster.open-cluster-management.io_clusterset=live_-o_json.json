@@ -1,0 +1,4 @@
+{"items":[
+  {"spec":{"clusterMetadata":{"infraID":"infra-abc123"}},"status":{"provisionStatus":"Provisioned"}},
+  {"spec":{"clusterMetadata":{"infraID":"infra-dead"}},"status":{"provisionStatus":"DeprovisionFailed"}}
+]}
