@@ -418,6 +418,35 @@ Proceed with selected items? (y/n)
 
 ---
 
+## Knowledge Base
+
+The skills maintain a local knowledge base in the `knowledge/` directory of the repo.
+This accumulates learnings across runs to improve orphan detection over time.
+
+```
+knowledge/
+  orphan-patterns.md       — confirmed patterns indicating a resource is orphaned
+  active-signatures.md     — known active resource signatures to avoid false positives
+  run-history/
+    YYYY-MM-DD-run.md      — per-run summary: what was found, cleaned, and learned
+```
+
+**How it works:**
+- `investigate-orphans` reads all of `knowledge/` at startup to inform its reasoning,
+  increasing confidence on resources that match known patterns
+- After `cleanup-orphans` completes, Claude appends a run summary to `run-history/` and
+  updates `orphan-patterns.md` and `active-signatures.md` with any new patterns learned
+  from user decisions (e.g. a resource type/naming pattern consistently confirmed orphaned)
+- Claude may also update the knowledge base mid-run if it encounters something notable
+
+**Sharing:**
+The knowledge base is local-only by default. After each run, you decide what to commit
+and push. Generic patterns (e.g. "managed-velero-backups-* with no matching EC2 tags are
+orphaned") are safe to share. Sensitive specifics (infra IDs, account numbers, cluster
+names) should remain local. This is left to your discretion per run.
+
+---
+
 ## Pre-flight Check Summary
 
 | Check | `cd-cleanup` | `cc-resource-cleanup` | `investigate-orphans` | `cleanup-orphans` |
