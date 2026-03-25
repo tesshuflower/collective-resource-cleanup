@@ -22,6 +22,9 @@ done
 
 # Get live infra IDs from collective
 live_infra_ids=$(get_live_infra_ids "$NAMESPACE")
+if [[ -z "$live_infra_ids" ]]; then
+  echo "WARNING: no live infra IDs returned from collective (kubectl may be unavailable). All tagged resources will appear as orphaned." >&2
+fi
 
 TMPFILE=$(mktemp)
 trap 'rm -f "$TMPFILE"' EXIT
@@ -37,9 +40,9 @@ while IFS= read -r region; do
     # Get resources for this infra ID
     resources=$(get_infra_resources "$PROFILE" "$region" "$infra_id" 2>/dev/null) || continue
     [[ -z "$resources" ]] && continue
-    count=$(echo "$resources" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null) || continue
+    count=$(echo "$resources" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))") || continue
     if [[ "${count:-0}" -gt 0 ]]; then
-      python3 - "$TMPFILE" "$infra_id" "$region" "$count" <<PYEOF
+      python3 - "$TMPFILE" "$infra_id" "$region" "$count" <<'PYEOF'
 import json, sys
 path, infra_id, region, count = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4])
 with open(path) as f:
