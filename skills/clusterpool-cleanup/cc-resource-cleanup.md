@@ -19,20 +19,15 @@ Before starting, tell the user:
 
 ## Pre-flight
 
-Follow the steps in `skills/clusterpool-cleanup/_preflight.md` to set REPO_ROOT, KUBECONFIG, authenticate, and determine NAMESPACE.
-
-Then follow the steps in `skills/clusterpool-cleanup/_preflight-aws-readonly.md` to verify AWS read-only credentials. Store the profile as SCAN_PROFILE.
-
-Then: look for `~/DEV/openshift/hive/bin/hiveutil`
+1. Follow the steps in `skills/clusterpool-cleanup/_preflight.md` to set REPO_ROOT, KUBECONFIG, authenticate, and determine NAMESPACE.
+2. Follow the steps in `skills/clusterpool-cleanup/_preflight-aws-readonly.md` to verify AWS read-only credentials. Store the profile as SCAN_PROFILE.
+3. Check hiveutil: look for `~/DEV/openshift/hive/bin/hiveutil`
    - If not found: ask "Path to hiveutil binary?" — store as HIVEUTIL_PATH
    - If found: store path as HIVEUTIL_PATH
-5. Check if hiveutil is up to date:
-   - Run `git -C <hiveutil-repo-dir> status` and check if behind origin
+4. Check if hiveutil is up to date:
+   - Run `git -C $(dirname $(dirname <HIVEUTIL_PATH>)) status` and check if behind origin
    - If behind: ask "hiveutil is out of date. Update before continuing? (y/n)"
-     - If y: run `git -C <hiveutil-repo-dir> pull && make -C <hiveutil-repo-dir> build-hiveutil`
-6. Ask: "AWS profile to use for scanning (read-only, e.g. aws-acm-dev11-readonly):" — store as SCAN_PROFILE
-7. Verify: `aws sts get-caller-identity --profile <SCAN_PROFILE>`
-   - If it fails: "AWS credentials invalid or expired for profile <SCAN_PROFILE>. Please refresh and retry." — STOP
+     - If y: run `git -C $(dirname $(dirname <HIVEUTIL_PATH>)) pull && make -C $(dirname $(dirname <HIVEUTIL_PATH>)) build-hiveutil`
 
 ## Scan
 

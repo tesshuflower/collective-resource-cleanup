@@ -6,7 +6,7 @@
 # Prints one region name per line.
 get_aws_regions() {
   local profile="$1"
-  aws ec2 describe-regions --profile "$profile" --output json 2>/dev/null \
+  aws ec2 describe-regions --profile "$profile" --output json \
     | python3 -c "import sys,json; [print(r['RegionName']) for r in json.load(sys.stdin).get('Regions',[])]"
 }
 
@@ -17,7 +17,7 @@ get_cluster_tag_keys() {
   local profile="$1"
   local region="$2"
   aws resourcegroupstaggingapi get-tag-keys \
-    --region "$region" --profile "$profile" --output json 2>/dev/null \
+    --region "$region" --profile "$profile" --output json \
     | python3 -c "
 import sys, json
 keys = json.load(sys.stdin).get('TagKeys', [])
