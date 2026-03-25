@@ -3,6 +3,7 @@
 kubectl() {
   local key="$*"
   key="${key// /_}"
+  key="${key//\//_}"
   local response_file="${MOCK_KUBECTL_RESPONSES}/${key}.json"
   if [[ -f "$response_file" ]]; then
     cat "$response_file"
