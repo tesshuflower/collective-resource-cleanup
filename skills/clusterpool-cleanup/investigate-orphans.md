@@ -1,0 +1,164 @@
+---
+name: clusterpool-cleanup:investigate-orphans
+description: Autonomously investigate orphaned AWS resources from collective ClusterPool deployments. Scans broadly, reasons about resource relationships, and produces a report and manifest for cleanup-orphans to act on. Read-only — no destructive actions.
+---
+
+# investigate-orphans
+
+Autonomously investigate orphaned AWS resources. Read-only — produces a report and manifest for cleanup-orphans.
+
+## Pre-flight
+
+1. Determine repo root: run `git rev-parse --show-toplevel` — store as REPO_ROOT
+2. Ask: "AWS read-only profile to use (e.g. aws-acm-dev11-readonly):" — store as PROFILE
+3. Verify: `aws sts get-caller-identity --profile <PROFILE>`
+   - If it fails: "AWS credentials invalid or expired. Please refresh and retry." — STOP
+4. Ask: "Collective cluster namespace? (default: app):" — store as NAMESPACE
+5. Attempt collective cluster access: `kubectl get clusterpool -n <NAMESPACE>`
+   - If it fails: warn "Collective cluster unreachable — ClusterDeployment cross-referencing will be skipped. AWS investigation will still run." Continue.
+   - If available: store live ClusterDeployment list (run `scripts/scan-cds.sh --namespace <NAMESPACE>` to get stuck CDs, and `kubectl get clusterdeployment --all-namespaces -l cluster.open-cluster-management.io/clusterset=<NAMESPACE> -o json` for all CDs including live ones)
+
+## Load knowledge base
+
+Read all files in `<REPO_ROOT>/knowledge/`:
+- `orphan-patterns.md` — confirmed patterns indicating a resource is orphaned
+- `active-signatures.md` — known active resource signatures to avoid false positives
+- `run-history/*.md` — past run summaries (if any)
+
+Use this knowledge to inform confidence assessments throughout the investigation.
+
+## Investigate
+
+This is the core of the skill. Investigate broadly and intelligently. The goal is to find AWS resources that are no longer associated with any active cluster.
+
+### Ground truth
+
+Build the set of active infra IDs:
+- From live ClusterDeployments on the collective (if available)
+- From EC2 tag keys that have been recently active (large resource counts suggest active clusters)
+
+### AWS sweep
+
+Enumerate all AWS regions: `aws ec2 describe-regions --profile <PROFILE> --output json`
+
+For each region, gather:
+- Tag keys matching `kubernetes.io/cluster/*`: `aws resourcegroupstaggingapi get-tag-keys --region <region> --profile <PROFILE> --output json`
+- For each infra ID found: check if it's in the active set
+
+For any infra ID NOT in the active set: investigate further
+- How many resources are tagged with it? `aws resourcegroupstaggingapi get-resources --region <region> --profile <PROFILE> --tag-filters Key=kubernetes.io/cluster/<infraID>,Values=owned --output json`
+- What types of resources? (EC2 instances, VPCs, security groups, EIPs, NAT gateways, load balancers)
+- How old do they appear to be? (look at creation timestamps where available)
+
+### S3 investigation
+
+List all S3 buckets: `aws s3 ls --profile <PROFILE>`
+
+For each bucket:
+- If named `managed-velero-backups-*`: get tags `aws s3api get-bucket-tagging --bucket <name> --profile <PROFILE>`
+  - Get the `velero.io/infrastructureName` tag value
+  - Check if that infra ID is active (EC2 tags + Route53 for ROSA clusters; collective CDs for Hive clusters)
+  - If no active cluster found: flag as likely orphaned
+- For other buckets: use judgment — look at naming patterns, tags, and size/age if relevant
+  - If clearly cluster-related but no standardized tags: flag as HUMAN REVIEW
+
+### IAM investigation
+
+List IAM roles: `aws iam list-roles --profile <PROFILE>`
+List instance profiles: `aws iam list-instance-profiles --profile <PROFILE>`
+
+For each role/profile whose name contains an infra ID pattern:
+- Check if that infra ID is active
+- If not: flag as potentially orphaned (MEDIUM confidence — IAM names aren't always deterministic)
+
+### Route53 investigation
+
+List hosted zones: `aws route53 list-hosted-zones --profile <PROFILE>`
+
+For zones that appear cluster-related (named after an infra ID or cluster):
+- Check if the corresponding cluster is still active
+- If not: flag as potentially orphaned
+
+### Reasoning about relationships
+
+As you investigate, reason about connections between resources:
+- A VPC with no EC2 instances, no active cluster tag, and a CIDR in the range Hive typically uses → likely orphaned
+- An IAM role named after an infra ID that has no tagged EC2 resources → likely orphaned
+- An S3 bucket from a ROSA cluster with no Route53 zone → likely orphaned
+- Follow threads: if you find something suspicious, query deeper to understand it
+
+You are not limited to the resource types listed above. If you discover other potentially orphaned resources while investigating, investigate them too.
+
+### Confidence levels
+
+Assign each finding one of:
+- **HIGH**: Multiple independent checks confirm orphaned (e.g. no EC2 + no Route53 + no CD)
+- **MEDIUM**: Partial evidence (e.g. no CD but Route53 still present — cluster may be mid-decommission)
+- **HUMAN REVIEW**: Cannot be safely auto-categorized (e.g. manually-named buckets with no cluster tags)
+
+## Write report
+
+Print a human-readable report to the terminal:
+
+```
+=== investigate-orphans Report ===
+Generated: <timestamp>
+AWS account: <account-id from sts get-caller-identity>
+Collective: <namespace> (<reachable/unreachable>)
+
+--- HIGH CONFIDENCE ---
+[list each finding with: resource name/type, why orphaned, recommended action]
+
+--- MEDIUM CONFIDENCE ---
+[list each finding]
+
+--- HUMAN REVIEW ---
+[list each finding with: what it is, why it couldn't be auto-categorized]
+
+--- Summary ---
+  High confidence:   N
+  Medium confidence: N
+  Human review:      N
+  Manifest written:  /tmp/clusterpool-cleanup-manifest.json
+```
+
+## Write manifest
+
+Write `/tmp/clusterpool-cleanup-manifest.json` using `scripts/lib/manifest.sh`:
+
+```bash
+source <REPO_ROOT>/scripts/lib/manifest.sh
+manifest_init /tmp/clusterpool-cleanup-manifest.json
+```
+
+For each finding, add an item:
+```bash
+manifest_add_item /tmp/clusterpool-cleanup-manifest.json '<json>'
+```
+
+Where each item JSON includes:
+- `id`: unique string
+- `type`: resource type (e.g. "s3_bucket", "iam_role", "aws_tagged_resources", "route53_zone")
+- `name`: resource name/identifier
+- `region`: AWS region (or "global" for IAM/S3)
+- `confidence`: "HIGH", "MEDIUM", or "HUMAN_REVIEW"
+- `reason`: why it's flagged as orphaned
+- `recommended_action`: what cleanup-orphans should do
+
+Set the `cc_resource_cleanup_run` field to false (cleanup-orphans will check this).
+
+After writing all items:
+```bash
+manifest_set_cc_resource_cleanup_run /tmp/clusterpool-cleanup-manifest.json false
+```
+
+## Update knowledge base
+
+After completing the investigation, append a run summary to `<REPO_ROOT>/knowledge/run-history/`:
+```bash
+# Create file: YYYY-MM-DD-run.md
+```
+
+Include: date, resources scanned, findings summary, any new patterns noticed.
+
+If you discovered new orphan patterns or active signatures not in the knowledge base, update `knowledge/orphan-patterns.md` or `knowledge/active-signatures.md` accordingly.
