@@ -55,10 +55,10 @@ ln -sf "$(pwd)/skills/clusterpool-cleanup" "${PLUGIN_DIR}/clusterpool-cleanup"
 
 Two AWS CLI profiles are used:
 
-- **Read-only** (e.g. `aws-acm-dev11-readonly`) — scanning and investigation
-- **Write** (e.g. `aws-acm-dev11`) — deletions (prompted before any destructive action)
+- **Read-only** — scanning and investigation (e.g. `aws-acm-dev11-readonly`)
+- **Write** — deletions, prompted before any destructive action (e.g. `aws-acm-dev11`)
 
-Each skill prompts for the relevant profile when it's first needed.
+Each skill prompts for the relevant profile when it's first needed — use whatever profile names match your AWS account.
 
 ## Knowledge base
 
