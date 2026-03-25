@@ -35,8 +35,8 @@ results = []
 for cd in data.get('items', []):
     if cd.get('status', {}).get('provisionStatus') == 'DeprovisionFailed':
         results.append({
-            'name': cd['metadata']['name'],
-            'namespace': cd['metadata']['namespace'],
+            'name': cd.get('metadata', {}).get('name', ''),
+            'namespace': cd.get('metadata', {}).get('namespace', ''),
             'infraID': cd.get('spec', {}).get('clusterMetadata', {}).get('infraID', ''),
         })
 print(json.dumps(results))
@@ -51,21 +51,21 @@ get_stuck_provisioning_cds() {
   kubectl get clusterdeployment --all-namespaces \
     -l "cluster.open-cluster-management.io/clusterset=${clusterset}" \
     -o json 2>/dev/null \
-    | python3 -c "
-import sys, json
+    | THRESHOLD_HOURS="$threshold_hours" python3 -c "
+import sys, json, os
 from datetime import datetime, timezone, timedelta
 data = json.load(sys.stdin)
-threshold = datetime.now(timezone.utc) - timedelta(hours=${threshold_hours})
+threshold = datetime.now(timezone.utc) - timedelta(hours=int(os.environ.get('THRESHOLD_HOURS', '24')))
 results = []
 for cd in data.get('items', []):
     if cd.get('status', {}).get('provisionStatus') == 'Provisioning':
-        ts = cd['metadata'].get('creationTimestamp', '')
+        ts = cd.get('metadata', {}).get('creationTimestamp', '')
         try:
             created = datetime.fromisoformat(ts.replace('Z', '+00:00'))
             if created < threshold:
                 results.append({
-                    'name': cd['metadata']['name'],
-                    'namespace': cd['metadata']['namespace'],
+                    'name': cd.get('metadata', {}).get('name', ''),
+                    'namespace': cd.get('metadata', {}).get('namespace', ''),
                     'createdAt': ts,
                 })
         except ValueError:
