@@ -24,6 +24,7 @@ done
 live_infra_ids=$(get_live_infra_ids "$NAMESPACE")
 
 TMPFILE=$(mktemp)
+trap 'rm -f "$TMPFILE"' EXIT
 echo "[]" > "$TMPFILE"
 
 while IFS= read -r region; do
@@ -52,4 +53,3 @@ PYEOF
 done < <(get_aws_regions "$PROFILE")
 
 cat "$TMPFILE"
-rm -f "$TMPFILE"
