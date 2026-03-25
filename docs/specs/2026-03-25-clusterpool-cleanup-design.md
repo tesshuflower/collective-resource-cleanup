@@ -452,6 +452,7 @@ names) should remain local. This is left to your discretion per run.
 | Check | `cd-cleanup` | `cc-resource-cleanup` | `investigate-orphans` | `cleanup-orphans` |
 |---|---|---|---|---|
 | Collective cluster access | hard | hard | soft | hard |
+| Collective namespace prompt | hard | hard | soft | hard |
 | AWS read-only profile | — | — | hard | — |
 | AWS write profile | — | before deletions | — | before deletions |
 | hiveutil binary | — | hard | — | — |
@@ -461,3 +462,12 @@ names) should remain local. This is left to your discretion per run.
 
 Collective cluster login prompt: `"Please log in first: oc login <api-url>"`.
 No hardcoded usernames, context names, or account-specific values anywhere in the skills.
+
+All skills that query the collective cluster prompt for the namespace to use:
+```
+Collective cluster namespace? (default: app):
+>
+```
+This applies to `cd-cleanup`, `cc-resource-cleanup`, and `investigate-orphans` (for
+ClusterDeployment cross-referencing). The namespace is passed to all subsequent kubectl
+commands rather than hardcoded.
