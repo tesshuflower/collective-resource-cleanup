@@ -43,12 +43,86 @@ All skills use named AWS profiles. At startup, the skill prompts the user for wh
 to use.
 
 - **Read-only profile** (`aws-acm-dev11-readonly`): used for all investigation/scanning steps.
-  IAM policy: `tflower-cluster-investigation-readonly` (EC2, S3, Route53, IAM, resource
-  tagging read actions).
+  IAM policy: `tflower-cluster-investigation-readonly`.
+  Required IAM actions: `ec2:Describe*`, `s3:ListAllMyBuckets`, `s3:ListBucket`,
+  `s3:GetBucketTagging`, `s3:GetBucketLocation`, `route53:List*`, `route53:Get*`,
+  `iam:List*`, `iam:Get*`, `resourcegroupstaggingapi:GetResources`,
+  `resourcegroupstaggingapi:GetTagKeys`, `sts:GetCallerIdentity`,
+  `elasticloadbalancing:Describe*`.
 - **Write profile** (`aws-acm-dev11`): used only for destructive actions, after explicit
   user confirmation.
 
-Skills that require both will prompt for each profile separately.
+AWS credentials are prompted at the point they are first needed — not upfront.
+
+---
+
+## Manifest
+
+The `investigate` skill writes its findings to:
+
+```
+/tmp/clusterpool-cleanup-manifest.json
+```
+
+The `execute` skill reads from this path by default, skipping the path prompt when invoked
+via `clusterpool-cleanup:full`. When invoked standalone, `execute` prompts for the path
+if the default does not exist.
+
+The manifest includes a field `"aws_resources_run": true/false` indicating whether
+`aws-resources` cleanup was run in the same session. This is used by `investigate` to
+warn the user — not manifest file presence.
+
+---
+
+## AWS Tag Scanning
+
+All resource group scans use the AWS Resource Groups Tagging API:
+
+```
+aws resourcegroupstaggingapi get-tag-keys --region <region>
+aws resourcegroupstaggingapi get-resources --region <region> \
+  --tag-filters Key=kubernetes.io/cluster/<infraID>,Values=owned
+```
+
+Regions are enumerated via `aws ec2 describe-regions`. S3 bucket listing and IAM are
+global and handled separately from the regional scan loop.
+
+---
+
+## Safety Re-check Definition
+
+Each skill performs a per-item re-check immediately before executing a destructive action:
+
+- **`cd-cleanup`**: Re-query the ClusterDeployment from the collective API and verify it
+  still has the same state (e.g., `DeprovisionFailed`) before removing the finalizer.
+  If state has changed, skip and report.
+- **`aws-resources`**: Re-query the collective for live ClusterDeployments and verify the
+  infra ID is still not claimed by any active CD before running hiveutil.
+- **`execute`**: Re-query both the collective (live CDs) and the AWS tagging API to verify
+  the resource is still present and unclaimed before deleting.
+  Exception: HUMAN REVIEW items selected by the user have no automated safety check —
+  the user is warned explicitly before the final confirm (see UI section).
+
+If a re-check finds the resource is now in use or state has changed, the item is skipped
+and reported in the summary as "Skipped (state changed at execution time)".
+
+---
+
+## Stuck Provisioning Threshold
+
+ClusterDeployments stuck in `Provisioning` are flagged if they have been in that state
+for more than **24 hours**. This default is used by both `cd-cleanup` and `investigate`
+and is not currently user-configurable.
+
+---
+
+## Region Handling
+
+- **Regional resources** (EC2, VPCs, security groups, NAT gateways, EIPs, load balancers,
+  Route53 hosted zones): scanned across all regions returned by `aws ec2 describe-regions`.
+- **Global resources** (IAM roles, instance profiles): queried once without a region.
+- **S3**: bucket listing is global (`aws s3 ls`); per-bucket operations use the bucket's
+  own region obtained via `aws s3api get-bucket-location`.
 
 ---
 
@@ -64,22 +138,23 @@ Cleans up stuck ClusterDeployment objects on the collective cluster.
 
 **Steps:**
 1. Pre-flight: verify collective cluster access — attempt `kubectl get clusterpool -n app`.
-   If it fails, prompt: `"Please log in: oc login <api-url>"` and exit.
+   If it fails, prompt: `"Please log in first: oc login <api-url>"` and exit.
 2. Scan for:
    - ClusterDeployments in `DeprovisionFailed` state → flag for finalizer removal
-   - ClusterDeployments stuck in `Provisioning` for >N hours → flag for deletion
+   - ClusterDeployments stuck in `Provisioning` for >24h → flag for deletion
 3. Present expand/select/deselect interface (see UI section below).
 4. Single confirm before performing any deletions.
-5. Execute selected actions, with per-item safety re-check before acting.
+5. Execute selected actions. Per-item safety re-check immediately before each action
+   (re-query CD state from collective API; skip if state has changed).
 6. Output summary.
 
 **Summary:**
 ```
 cd-cleanup summary:
-  Finalizers removed:  N ClusterDeployments
-  CDs deleted:         N (stuck Provisioning >Nh)
-  Skipped:             N (active ClusterDeployment found at execution time)
-  Failed:              N
+  Finalizers removed:          N ClusterDeployments
+  CDs deleted:                 N (stuck Provisioning >24h)
+  Skipped (state changed):     N
+  Failed:                      N
 ```
 
 ---
@@ -90,31 +165,36 @@ Cleans up orphaned AWS resources left behind by collective ClusterDeployments, u
 hiveutil's `aws-tag-deprovision`.
 
 **Permissions:**
-- AWS write credentials
 - Collective cluster read (to cross-reference live ClusterDeployments)
+- AWS write credentials (prompted immediately before first deletion)
 
 **Steps:**
 1. Pre-flight:
-   - Prompt for AWS write profile, verify with `aws sts get-caller-identity`
-   - Verify collective cluster access
-   - Check hiveutil binary exists, prompt for path if not found at default
-     (`~/DEV/openshift/hive/bin/hiveutil`)
-2. Check hiveutil git status — if behind origin, prompt: `"hiveutil is out of date. Update
-   before continuing? (y/n)"`. If yes: `git pull` + `make build-hiveutil`.
-3. Scan AWS for `kubernetes.io/cluster/*` tagged resource groups with no corresponding
-   live ClusterDeployment on the collective.
+   - Verify collective cluster access — attempt `kubectl get clusterpool -n app`.
+     If it fails, prompt: `"Please log in first: oc login <api-url>"` and exit.
+   - Check hiveutil binary exists; prompt for path if not found at default
+     (`~/DEV/openshift/hive/bin/hiveutil`).
+2. Check hiveutil git status — if behind origin, prompt:
+   `"hiveutil is out of date. Update before continuing? (y/n)"`.
+   If yes: `git pull` + `make build-hiveutil`.
+3. Scan AWS across all regions for `kubernetes.io/cluster/*` tagged resource groups
+   (via `aws resourcegroupstaggingapi get-tag-keys` + `get-resources`). Cross-reference
+   each infra ID against live ClusterDeployments on the collective. Flag groups with no
+   corresponding active CD as orphaned.
 4. Present expand/select/deselect interface.
-5. Single confirm before performing any deletions.
-6. Run `hiveutil aws-tag-deprovision <tag>=owned --region <region>` for each confirmed item,
-   with per-item safety re-check against live ClusterDeployments before acting.
-7. Output summary.
+5. Prompt for AWS write profile; verify with `aws sts get-caller-identity`.
+6. Single confirm before performing any deletions.
+7. Run `hiveutil aws-tag-deprovision <tag>=owned --region <region>` for each confirmed
+   item. Per-item safety re-check immediately before each call (re-verify infra ID is
+   still not claimed by any active CD; skip if claimed).
+8. Output summary.
 
 **Summary:**
 ```
 aws-resources summary:
-  Resource groups cleaned:  N (via hiveutil)
-  Skipped:                  N (active ClusterDeployment found at execution time)
-  Failed:                   N
+  Resource groups cleaned:     N (via hiveutil)
+  Skipped (state changed):     N
+  Failed:                      N
 ```
 
 ---
@@ -123,75 +203,86 @@ aws-resources summary:
 
 Scans the shared AWS account for ALL orphaned resources — including resources from outside
 the collective/clusterpool scope (e.g. ROSA-based ACM hubs). Produces a human-readable
-report and a structured `manifest.json` for use by `clusterpool-cleanup:execute`.
+report and a structured manifest at `/tmp/clusterpool-cleanup-manifest.json`.
 
 **Permissions:**
-- AWS read-only credentials
-- Collective cluster read
+- AWS read-only credentials (hard dependency)
+- Collective cluster read (soft dependency — if unavailable, ClusterDeployment
+  cross-referencing is skipped and the user is warned; ROSA bucket checks via AWS
+  still run)
 
 **Steps:**
 1. Pre-flight:
-   - Prompt for AWS read-only profile, verify with `aws sts get-caller-identity`
-   - Verify collective cluster access
-2. Warn if `aws-resources` cleanup has not been run (manifest from prior run absent):
-   `"Collective ClusterPool Deployment Cleanup has not been run. Tagged AWS resources
-   may still be present. Consider running clusterpool-cleanup:full instead."`
+   - Prompt for AWS read-only profile; verify with `aws sts get-caller-identity`.
+   - Attempt collective cluster access (`kubectl get clusterpool -n app`).
+     If unavailable: warn `"Collective cluster unreachable — ClusterDeployment
+     cross-referencing will be skipped. ROSA bucket checks will still run."` Continue.
+2. Check manifest field `aws_resources_run`. If false or manifest absent: warn
+   `"Collective ClusterPool AWS resource cleanup has not been run this session. Tagged
+   AWS resources may still be present. Consider running clusterpool-cleanup:full instead."`
 3. Scan for orphaned resources across all types (see Investigated Resource Types below).
-4. Cross-reference each found resource against live ClusterDeployments on the collective.
-5. Output human-readable report and write `manifest.json`.
+4. Cross-reference each found resource against live ClusterDeployments on the collective
+   (if collective is reachable).
+5. Write human-readable report to stdout and manifest to
+   `/tmp/clusterpool-cleanup-manifest.json` with `"aws_resources_run": false`.
 
 **No confirmation required** — read-only, no destructive actions.
 
 **Summary:**
 ```
 investigate summary:
-  Resources scanned:        N
-  Orphaned (high conf):     N
-  Orphaned (medium conf):   N
-  Human review required:    N
-  Manifest written to:      /tmp/clusterpool-cleanup-manifest.json
+  Resources scanned:            N
+  Orphaned (high confidence):   N
+  Orphaned (medium confidence): N
+  Human review required:        N
+  Manifest written to:          /tmp/clusterpool-cleanup-manifest.json
 ```
 
 #### Investigated Resource Types
 
-**AWS Resources (via `kubernetes.io/cluster/*` tags):**
+**AWS Resources (via `kubernetes.io/cluster/*` tags, all regions):**
 - EC2 instances
 - VPCs, subnets, route tables, internet gateways
 - Security groups
 - NAT gateways
 - Elastic IPs
 - Load balancers (ELB/NLB/ALB)
-- IAM roles and instance profiles
-- Route53 hosted zones
 - S3 image registry buckets
+- Route53 hosted zones
+
+**IAM (global):**
+- IAM roles and instance profiles tagged or named with cluster infra IDs
 
 **S3 Buckets — OADP auto-generated (`managed-velero-backups-<uuid>`):**
 - Get `velero.io/infrastructureName` tag from each bucket
-- If infra name is `rosa-*`: verify cluster is gone via AWS EC2 tags +
-  Route53 hosted zone (both must be absent to flag as orphaned)
-- If infra name matches a Hive pattern: cross-reference against collective
-  ClusterDeployment infra IDs
-- If orphaned: flag for deletion (HIGH or MEDIUM confidence depending on check results)
+- If infra name is `rosa-*`: check AWS EC2 tags (`kubernetes.io/cluster/<infraID>=owned`)
+  and Route53 hosted zone for that infra ID. Both must be absent to flag as orphaned.
+- If infra name matches a Hive naming pattern: cross-reference against collective
+  ClusterDeployment infra IDs (if collective is reachable).
+- If orphaned: flag for deletion (HIGH or MEDIUM confidence depending on check results).
 
 **S3 Buckets — manually pre-created (e.g. `vb-velero-backup`):**
-- No standardized tags — cannot reliably link to a cluster
-- Flag for HUMAN REVIEW only (deselected by default in execute UI)
+- No standardized tags — cannot reliably link to a cluster.
+- Flagged as HUMAN REVIEW. Deselected by default in execute UI.
+- User may select them for deletion after manual review, but no automated safety
+  check can be performed. Deletion uses `aws s3 rb --force`. User is warned explicitly
+  before the final confirm if any HUMAN REVIEW items are selected (see UI section).
 
-**Collective ClusterDeployments:**
+**Collective ClusterDeployments (if collective reachable):**
 - `DeprovisionFailed` → flag for finalizer removal
-- Stuck `Provisioning` >N hours → flag for deletion
+- Stuck `Provisioning` >24h → flag for deletion
 
 #### Report Format Per Resource
 
 Each flagged resource includes:
 ```
-Resource:          managed-velero-backups-03c2d0d6-...
-Type:              S3 bucket (OADP auto-generated velero backup)
-Origin:            ROSA cluster rosa-yjcli-taeu-vtm4j — ACM hub with cluster-backup enabled
-Created:           2026-02-14
-Why orphaned:      No EC2 instances or Route53 hosted zone found for rosa-yjcli-taeu-vtm4j
-                   — cluster has been removed from AWS
-Confidence:        HIGH
+Resource:           managed-velero-backups-03c2d0d6-...
+Type:               S3 bucket (OADP auto-generated velero backup)
+Origin:             ROSA cluster rosa-yjcli-taeu-vtm4j — ACM hub with cluster-backup enabled
+Created:            2026-02-14
+Why orphaned:       No EC2 instances or Route53 hosted zone found for rosa-yjcli-taeu-vtm4j
+                    — cluster has been removed from AWS
+Confidence:         HIGH
 Recommended action: Delete bucket
 ```
 
@@ -199,29 +290,39 @@ Recommended action: Delete bucket
 
 ### `clusterpool-cleanup:execute`
 
-Acts on a saved `manifest.json` from a prior `investigate` run.
+Acts on a saved manifest from a prior `investigate` run.
 
 **Permissions:**
-- AWS write credentials
 - Collective cluster write
+- AWS write credentials (prompted immediately before first deletion)
 
 **Steps:**
 1. Pre-flight:
-   - Prompt for AWS write profile, verify with `aws sts get-caller-identity`
-   - Verify collective cluster access
-   - Load `manifest.json` (prompt for path if not at default location)
+   - Verify collective cluster access.
+   - Load manifest from `/tmp/clusterpool-cleanup-manifest.json` (prompt for path if
+     not found; path prompt is skipped when invoked via `full`).
 2. Present expand/select/deselect interface grouped by confidence level.
-3. Single confirm before performing any deletions.
-4. Execute selected actions, with per-item safety re-check against live ClusterDeployments
-   before acting. Skip and notify if a live CD is found.
-5. Output summary.
+   HUMAN REVIEW items are deselected by default but can be selected by the user
+   after manual review.
+3. Prompt for AWS write profile; verify with `aws sts get-caller-identity`.
+4. If any HUMAN REVIEW items are selected, show warning before confirm:
+   `"⚠ N selected items have no automated safety check (no cluster linkage).
+   Expand to review before proceeding."`
+5. Single confirm before performing any deletions. Confirm message notes if
+   HUMAN REVIEW items are included:
+   `"Proceed with selected items? (includes N items with no safety check) (y/n)"`
+6. Execute selected actions:
+   - Standard items: per-item safety re-check immediately before each action.
+   - HUMAN REVIEW items: deleted directly via `aws s3 rb --force`, no safety check.
+   Skip and report standard items if state has changed.
+7. Output summary.
 
 **Summary:**
 ```
 execute summary:
-  Cleaned:   N items
-  Skipped:   N items (active ClusterDeployment found at execution time)
-  Failed:    N items
+  Cleaned:                     N items
+  Skipped (state changed):     N items
+  Failed:                      N items
 ```
 
 ---
@@ -236,12 +337,18 @@ Convenience skill that runs all four steps in sequence.
 3. `investigate`
 4. `execute`
 
-**Permissions:** All of the above. Prompts for read-only and write AWS profiles separately.
+**Permissions:** All of the above. AWS credentials are prompted at the point they are
+first needed — not upfront:
+- AWS write profile: prompted before first deletion in `aws-resources`, reused for `execute`
+- AWS read-only profile: prompted at start of `investigate`
 
 **Confirmation points (3 total):**
 1. Before `cd-cleanup` performs any deletions
 2. Before `aws-resources` performs any deletions
 3. Before `execute` performs any deletions
+
+`investigate` writes the manifest to `/tmp/clusterpool-cleanup-manifest.json` and `execute`
+reads from that path automatically, skipping the path prompt.
 
 **Summary:** Aggregates all four step summaries:
 ```
@@ -250,7 +357,7 @@ full summary:
   AWS resource groups cleaned: N
   Remaining orphans found:     N
   Remaining orphans cleaned:   N
-  Skipped (safety check):      N
+  Skipped (state changed):     N
   Failed:                      N
 ```
 
@@ -266,17 +373,17 @@ Used by `cd-cleanup`, `aws-resources`, and `execute` before any destructive acti
 [HIGH CONFIDENCE]
  [1] ✓  14 OADP velero buckets from deleted ROSA clusters
  [2] ✓   3 image registry buckets (DeprovisionFailed CDs)
- [3] ✓   2 Collective ClusterPool Deployment Cleanup leftovers
+ [3] ✓   2 Collective ClusterPool AWS resource cleanup leftovers
 
 [MEDIUM CONFIDENCE]
  [4] ✓   5 DeprovisionFailed ClusterDeployments (finalizer removal)
  [5] ✓   2 Provisioning CDs stuck >24h
 
-[HUMAN REVIEW REQUIRED]
+[HUMAN REVIEW REQUIRED — no automated safety check]
  [6] ✗   3 manually-named velero buckets (deselected by default)
 
 Commands: <number> to toggle group, e<number> to expand/collapse,
-          <1a 1b ...> to toggle individual items, Enter to proceed
+          <number><letter> to toggle individual item (e.g. 1a), Enter to proceed
 > e1
 
   [1a] ✓  managed-velero-backups-03c2d0d6-...
@@ -286,41 +393,41 @@ Commands: <number> to toggle group, e<number> to expand/collapse,
   [1b] ✓  managed-velero-backups-0c236023-...
            ...
 
-> 1b      (deselect individual item)
-
+> 1b     (deselect individual item)
   [1b] ✗  managed-velero-backups-0c236023-... (deselected)
+
+> 6      (select HUMAN REVIEW group)
+  [6] ✓   3 manually-named velero buckets
+
+  ⚠ These buckets have no standardized tags linking them to a cluster.
+    No automated safety check can be performed. Expand (e6) to review each
+    bucket before proceeding.
 
 > (Enter)
 
+⚠ Proceeding with 3 items that have no automated safety check.
 Proceed with selected items? (y/n)
 > y
 ```
 
-- Items in HUMAN REVIEW REQUIRED are deselected by default
-- All other items are selected by default
+- All items except HUMAN REVIEW are selected by default
+- HUMAN REVIEW items are deselected by default but selectable; warning shown when selected
 - Groups can be toggled as a whole or expanded to toggle individual items
 - Single confirm before performing any deletions
 
 ---
 
-## Pre-flight Checks
+## Pre-flight Check Summary
 
-All skills run these checks at startup before any other action:
+| Check | `cd-cleanup` | `aws-resources` | `investigate` | `execute` |
+|---|---|---|---|---|
+| Collective cluster access | hard | hard | soft | hard |
+| AWS read-only profile | — | — | hard | — |
+| AWS write profile | — | before deletions | — | before deletions |
+| hiveutil binary | — | hard | — | — |
 
-1. **AWS profile** — prompt for profile name (suggest context-appropriate default),
-   verify with `aws sts get-caller-identity`
-2. **Collective cluster access** — attempt `kubectl get clusterpool -n app`.
-   If it fails: `"Please log in first: oc login <api-url>"` then exit.
-   No hardcoded usernames or context names.
-3. **hiveutil binary** (`aws-resources` only) — check path, prompt if not found.
+**Hard dependency**: skill exits if check fails.
+**Soft dependency**: skill continues with degraded functionality and warns the user.
 
----
-
-## Key Constraints
-
-- No hardcoded usernames, context names, or account-specific values
-- Read-only AWS profile used for all scanning; write profile only for destructive actions
-- Every destructive action is preceded by a safety re-check against live ClusterDeployments
-  on the collective — skip and report if a live CD is found
-- `manifest.json` serves as an audit trail between investigate and execute runs
-- Skills are independently invokable; `full` is a convenience wrapper
+Collective cluster login prompt: `"Please log in first: oc login <api-url>"`.
+No hardcoded usernames, context names, or account-specific values anywhere in the skills.
