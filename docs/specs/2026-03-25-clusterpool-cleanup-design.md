@@ -468,6 +468,14 @@ All skills that query the collective cluster prompt for the namespace to use:
 Collective cluster namespace? (default: app):
 >
 ```
-This applies to `cd-cleanup`, `cc-resource-cleanup`, and `investigate-orphans` (for
-ClusterDeployment cross-referencing). The namespace is passed to all subsequent kubectl
-commands rather than hardcoded.
+
+This namespace value serves two purposes:
+- **ClusterPool and ClusterClaim queries**: scoped directly to the namespace
+  (e.g. `kubectl get clusterpool -n <namespace>`)
+- **ClusterDeployment queries**: ClusterDeployments live in their own per-cluster
+  namespaces (named after the cluster), so they are scanned across all namespaces
+  filtered by the ClusterSet label:
+  `kubectl get clusterdeployment --all-namespaces -l cluster.open-cluster-management.io/clusterset=<namespace>`
+
+This assumes the ClusterSet name matches the namespace name (true for the `app` group).
+If they ever diverge, separate prompts would be needed.
