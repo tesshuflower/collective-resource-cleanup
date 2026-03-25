@@ -58,18 +58,18 @@ AWS credentials are prompted at the point they are first needed — not upfront.
 
 ## Manifest
 
-The `investigate` skill writes its findings to:
+The `investigate-orphans` skill writes its findings to:
 
 ```
 /tmp/clusterpool-cleanup-manifest.json
 ```
 
-The `execute` skill reads from this path by default, skipping the path prompt when invoked
-via `clusterpool-cleanup:full`. When invoked standalone, `execute` prompts for the path
-if the default does not exist.
+The `cleanup-orphans` skill reads from this path by default, skipping the path prompt when
+invoked via `clusterpool-cleanup:full`. When invoked standalone, `cleanup-orphans` prompts
+for the path if the default does not exist.
 
-The manifest includes a field `"aws_resources_run": true/false` indicating whether
-`aws-resources` cleanup was run in the same session. This is used by `investigate` to
+The manifest includes a field `"cc_resource_cleanup_run": true/false` indicating whether
+`cc-resource-cleanup` was run in the same session. This is used by `investigate-orphans` to
 warn the user — not manifest file presence.
 
 ---
@@ -159,9 +159,9 @@ cd-cleanup summary:
 
 ---
 
-### `clusterpool-cleanup:aws-resources`
+### `clusterpool-cleanup:cc-resource-cleanup`
 
-Cleans up orphaned AWS resources left behind by collective ClusterDeployments, using
+Cleans up orphaned AWS resources left behind by cluster claims on the collective, using
 hiveutil's `aws-tag-deprovision`.
 
 **Permissions:**
@@ -191,7 +191,7 @@ hiveutil's `aws-tag-deprovision`.
 
 **Summary:**
 ```
-aws-resources summary:
+cc-resource-cleanup summary:
   Resource groups cleaned:     N (via hiveutil)
   Skipped (state changed):     N
   Failed:                      N
@@ -199,11 +199,12 @@ aws-resources summary:
 
 ---
 
-### `clusterpool-cleanup:investigate`
+### `clusterpool-cleanup:investigate-orphans`
 
-Scans the shared AWS account for ALL orphaned resources — including resources from outside
-the collective/clusterpool scope (e.g. ROSA-based ACM hubs). Produces a human-readable
-report and a structured manifest at `/tmp/clusterpool-cleanup-manifest.json`.
+Run after `cd-cleanup` and `cc-resource-cleanup` to scan for anything still orphaned
+across all resource types. Scans the shared AWS account broadly — including resources
+from outside the collective/clusterpool scope (e.g. ROSA-based ACM hubs). Produces a
+human-readable report and a structured manifest at `/tmp/clusterpool-cleanup-manifest.json`.
 
 **Permissions:**
 - AWS read-only credentials (hard dependency)
@@ -217,20 +218,20 @@ report and a structured manifest at `/tmp/clusterpool-cleanup-manifest.json`.
    - Attempt collective cluster access (`kubectl get clusterpool -n app`).
      If unavailable: warn `"Collective cluster unreachable — ClusterDeployment
      cross-referencing will be skipped. ROSA bucket checks will still run."` Continue.
-2. Check manifest field `aws_resources_run`. If false or manifest absent: warn
-   `"Collective ClusterPool AWS resource cleanup has not been run this session. Tagged
-   AWS resources may still be present. Consider running clusterpool-cleanup:full instead."`
+2. Check manifest field `cc_resource_cleanup_run`. If false or manifest absent: warn
+   `"cc-resource-cleanup has not been run this session. Tagged AWS resources may still
+   be present. Consider running clusterpool-cleanup:full instead."`
 3. Scan for orphaned resources across all types (see Investigated Resource Types below).
 4. Cross-reference each found resource against live ClusterDeployments on the collective
    (if collective is reachable).
 5. Write human-readable report to stdout and manifest to
-   `/tmp/clusterpool-cleanup-manifest.json` with `"aws_resources_run": false`.
+   `/tmp/clusterpool-cleanup-manifest.json` with `"cc_resource_cleanup_run": false`.
 
 **No confirmation required** — read-only, no destructive actions.
 
 **Summary:**
 ```
-investigate summary:
+investigate-orphans summary:
   Resources scanned:            N
   Orphaned (high confidence):   N
   Orphaned (medium confidence): N
@@ -288,9 +289,9 @@ Recommended action: Delete bucket
 
 ---
 
-### `clusterpool-cleanup:execute`
+### `clusterpool-cleanup:cleanup-orphans`
 
-Acts on a saved manifest from a prior `investigate` run.
+Acts on a saved manifest from a prior `investigate-orphans` run.
 
 **Permissions:**
 - Collective cluster write
@@ -319,7 +320,7 @@ Acts on a saved manifest from a prior `investigate` run.
 
 **Summary:**
 ```
-execute summary:
+cleanup-orphans summary:
   Cleaned:                     N items
   Skipped (state changed):     N items
   Failed:                      N items
@@ -333,22 +334,22 @@ Convenience skill that runs all four steps in sequence.
 
 **Order:**
 1. `cd-cleanup`
-2. `aws-resources`
-3. `investigate`
-4. `execute`
+2. `cc-resource-cleanup`
+3. `investigate-orphans`
+4. `cleanup-orphans`
 
 **Permissions:** All of the above. AWS credentials are prompted at the point they are
 first needed — not upfront:
-- AWS write profile: prompted before first deletion in `aws-resources`, reused for `execute`
-- AWS read-only profile: prompted at start of `investigate`
+- AWS write profile: prompted before first deletion in `cc-resource-cleanup`, reused for `cleanup-orphans`
+- AWS read-only profile: prompted at start of `investigate-orphans`
 
 **Confirmation points (3 total):**
 1. Before `cd-cleanup` performs any deletions
-2. Before `aws-resources` performs any deletions
-3. Before `execute` performs any deletions
+2. Before `cc-resource-cleanup` performs any deletions
+3. Before `cleanup-orphans` performs any deletions
 
-`investigate` writes the manifest to `/tmp/clusterpool-cleanup-manifest.json` and `execute`
-reads from that path automatically, skipping the path prompt.
+`investigate-orphans` writes the manifest to `/tmp/clusterpool-cleanup-manifest.json` and
+`cleanup-orphans` reads from that path automatically, skipping the path prompt.
 
 **Summary:** Aggregates all four step summaries:
 ```
@@ -365,7 +366,7 @@ full summary:
 
 ## UI — Expand/Select/Deselect Interface
 
-Used by `cd-cleanup`, `aws-resources`, and `execute` before any destructive action.
+Used by `cd-cleanup`, `cc-resource-cleanup`, and `cleanup-orphans` before any destructive action.
 
 ```
 === Cleanup Plan ===
@@ -419,7 +420,7 @@ Proceed with selected items? (y/n)
 
 ## Pre-flight Check Summary
 
-| Check | `cd-cleanup` | `aws-resources` | `investigate` | `execute` |
+| Check | `cd-cleanup` | `cc-resource-cleanup` | `investigate-orphans` | `cleanup-orphans` |
 |---|---|---|---|---|
 | Collective cluster access | hard | hard | soft | hard |
 | AWS read-only profile | — | — | hard | — |
