@@ -36,7 +36,7 @@ Then: look for `~/DEV/openshift/hive/bin/hiveutil`
 
 ## Scan
 
-Run: `bash <REPO_ROOT>/scripts/scan-cc-resources.sh --profile <SCAN_PROFILE> --namespace <NAMESPACE>`
+Run: `KUBECONFIG=~/.kube/collective bash <REPO_ROOT>/scripts/scan-cc-resources.sh --profile <SCAN_PROFILE> --namespace <NAMESPACE>`
 
 This outputs a JSON array of orphaned resource groups. Each entry has: `infra_id`, `region`, `resource_count`.
 
@@ -76,7 +76,7 @@ If n: STOP.
 ## Execute
 
 For each selected resource group, immediately before acting:
-- Re-query live ClusterDeployments: `bash <REPO_ROOT>/scripts/scan-cc-resources.sh --profile <SCAN_PROFILE> --namespace <NAMESPACE>`
+- Re-query live ClusterDeployments: `KUBECONFIG=~/.kube/collective bash <REPO_ROOT>/scripts/scan-cc-resources.sh --profile <SCAN_PROFILE> --namespace <NAMESPACE>`
 - If the infra_id now appears as live: skip, note as "Skipped (state changed)"
 
 Run hiveutil for each confirmed orphan:

@@ -11,7 +11,10 @@ get_live_infra_ids() {
     -o json 2>/dev/null \
     | python3 -c "
 import sys, json
-data = json.load(sys.stdin)
+raw = sys.stdin.read()
+if not raw.strip():
+    sys.exit(0)
+data = json.loads(raw)
 for cd in data.get('items', []):
     status = cd.get('status', {}).get('provisionStatus', '')
     if status != 'DeprovisionFailed':
