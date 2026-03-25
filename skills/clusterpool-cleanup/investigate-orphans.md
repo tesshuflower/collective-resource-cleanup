@@ -5,14 +5,23 @@ description: Autonomously investigate orphaned AWS resources from collective Clu
 
 # investigate-orphans
 
-Autonomously investigate orphaned AWS resources. Read-only — produces a report and manifest for cleanup-orphans.
+## Overview
+
+Before starting, tell the user:
+
+> **investigate-orphans** will:
+> 1. Connect to the collective cluster (optional — used for cross-referencing active ClusterDeployments)
+> 2. Verify AWS read-only credentials
+> 3. Broadly scan AWS resources across all regions — EC2, S3, IAM, Route53, and more
+> 4. Reason about relationships between resources to identify orphans with confidence levels
+> 5. Print a detailed report and write a manifest to `/tmp/clusterpool-cleanup-manifest.json`
+>
+> Read-only — no destructive actions. Run `cleanup-orphans` to act on the results.
 
 ## Pre-flight
 
-1. Ask: "AWS read-only profile to use (e.g. aws-acm-dev11-readonly):" — store as PROFILE
-2. Verify: `aws sts get-caller-identity --profile <PROFILE>`
-   - If it fails: "AWS credentials invalid or expired. Please refresh and retry." — STOP
-3. Follow the steps in `skills/clusterpool-cleanup/_preflight.md` to set REPO_ROOT, KUBECONFIG, authenticate, and determine NAMESPACE.
+1. Follow the steps in `skills/clusterpool-cleanup/_preflight.md` to set REPO_ROOT, KUBECONFIG, authenticate, and determine NAMESPACE.
+2. Follow the steps in `skills/clusterpool-cleanup/_preflight-aws-readonly.md` to verify AWS read-only credentials. Store the profile as PROFILE.
    - Collective cluster access is a **soft dependency** for this skill: if login fails, warn "Collective cluster unreachable — ClusterDeployment cross-referencing will be skipped. AWS investigation will still run." and continue with NAMESPACE unset.
    - If available: load live ClusterDeployment list by running `scripts/scan-cds.sh --namespace <NAMESPACE>` for stuck CDs, and `KUBECONFIG=~/.kube/collective kubectl get clusterdeployment --all-namespaces -l cluster.open-cluster-management.io/clusterset=<NAMESPACE> -o json` for all CDs.
 

@@ -5,7 +5,17 @@ description: Act on findings from a prior investigate-orphans run. Reads the man
 
 # cleanup-orphans
 
-Act on findings from a prior `investigate-orphans` run.
+## Overview
+
+Before starting, tell the user:
+
+> **cleanup-orphans** will:
+> 1. Connect to the collective cluster
+> 2. Load the manifest from a prior `investigate-orphans` run
+> 3. Show findings grouped by confidence level for review and selection
+> 4. Prompt for AWS write credentials and confirm before making any changes
+> 5. Delete selected resources with per-item safety re-checks
+> 6. Print a summary of what was done
 
 ## Pre-flight
 

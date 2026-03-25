@@ -5,7 +5,17 @@ description: Clean up stuck ClusterDeployment objects on the collective cluster 
 
 # cd-cleanup
 
-Clean up stuck ClusterDeployment objects on the collective cluster.
+## Overview
+
+Before starting, tell the user:
+
+> **cd-cleanup** will:
+> 1. Connect to the collective cluster
+> 2. Scan for ClusterDeployments stuck in `DeprovisionFailed` (finalizer removal) or `Provisioning` for >24h (deletion)
+> 3. Show a plan and ask for confirmation before making any changes
+> 4. Print a summary of what was done
+>
+> No AWS credentials required.
 
 ## Pre-flight
 

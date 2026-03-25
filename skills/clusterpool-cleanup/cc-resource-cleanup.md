@@ -5,11 +5,23 @@ description: Clean up orphaned AWS resources left behind by collective ClusterPo
 
 # cc-resource-cleanup
 
-Clean up orphaned AWS tagged resource groups from collective ClusterPool deployments.
+## Overview
+
+Before starting, tell the user:
+
+> **cc-resource-cleanup** will:
+> 1. Connect to the collective cluster and verify AWS read-only credentials
+> 2. Scan all AWS regions for `kubernetes.io/cluster/*` tagged resource groups not claimed by any active ClusterDeployment
+> 3. Show a plan for review
+> 4. Prompt for AWS write credentials and confirm before making any changes
+> 5. Run `hiveutil aws-tag-deprovision` for each confirmed orphan
+> 6. Print a summary of what was done
 
 ## Pre-flight
 
 Follow the steps in `skills/clusterpool-cleanup/_preflight.md` to set REPO_ROOT, KUBECONFIG, authenticate, and determine NAMESPACE.
+
+Then follow the steps in `skills/clusterpool-cleanup/_preflight-aws-readonly.md` to verify AWS read-only credentials. Store the profile as SCAN_PROFILE.
 
 Then: look for `~/DEV/openshift/hive/bin/hiveutil`
    - If not found: ask "Path to hiveutil binary?" — store as HIVEUTIL_PATH

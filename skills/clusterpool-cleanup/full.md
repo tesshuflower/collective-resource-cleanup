@@ -5,9 +5,19 @@ description: Run all four collective cleanup steps in sequence: cd-cleanup, cc-r
 
 # full
 
-Run all four collective cleanup steps in sequence.
+## Overview
 
-**Order:**
+Before starting, tell the user:
+
+> **full** will run all four cleanup steps in sequence:
+> 1. **cd-cleanup** — remove stuck ClusterDeployment objects (no AWS credentials needed)
+> 2. **cc-resource-cleanup** — deprovision orphaned AWS tagged resource groups via hiveutil
+> 3. **investigate-orphans** — broadly scan for remaining orphaned AWS resources and produce a report
+> 4. **cleanup-orphans** — act on the report interactively
+>
+> There are 3 confirmation points — one before each destructive step. Credentials are prompted once and reused across steps.
+
+## Execution order
 1. `cd-cleanup` — clean up stuck ClusterDeployment objects
 2. `cc-resource-cleanup` — clean up tagged AWS resource groups via hiveutil
 3. `investigate-orphans` — scan broadly for remaining orphans, produce report
