@@ -11,7 +11,8 @@ Run these steps at the start of every clusterpool-cleanup skill:
    ```
    If the user selects 1, use that URL. If the user selects 2, ask: "Collective cluster URL:" and wait for input. Store as CLUSTER_URL.
 3. Set `KUBECONFIG=~/.kube/collective` for all subsequent kubectl/oc commands.
-4. Try: `KUBECONFIG=~/.kube/collective kubectl get clusterpool --all-namespaces`
-   - If it fails: run `KUBECONFIG=~/.kube/collective oc login <CLUSTER_URL>` to authenticate, then retry
+4. Check authentication: run `KUBECONFIG=~/.kube/collective oc whoami`
+   - If it fails: run `KUBECONFIG=~/.kube/collective oc login --web <CLUSTER_URL>` to authenticate via browser, then run `oc whoami` again to confirm
    - If it still fails: STOP (unless the skill explicitly says collective access is a soft dependency)
-5. Show the available namespaces from the clusterpool output. If there is only one, use it automatically and tell the user. If there are multiple, list them and ask the user to choose. Store as NAMESPACE.
+5. Get available namespaces: run `KUBECONFIG=~/.kube/collective oc projects -q`
+   - Show the list to the user and ask them to choose. Store as NAMESPACE.
