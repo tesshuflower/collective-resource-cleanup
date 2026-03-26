@@ -10,7 +10,7 @@ description: Autonomously investigate orphaned AWS resources from collective Clu
 Before starting, tell the user:
 
 > **investigate-orphans** will:
-> 1. Connect to the collective cluster (optional — used for cross-referencing active ClusterDeployments)
+> 1. Connect to the collective cluster and load all active ClusterDeployments
 > 2. Verify AWS read-only credentials
 > 3. Broadly scan AWS resources across all regions — EC2, S3, IAM, Route53, and more
 > 4. Reason about relationships between resources to identify orphans with confidence levels
@@ -22,11 +22,12 @@ Before starting, tell the user:
 
 1. Determine repo root: run `git rev-parse --show-toplevel` — store as REPO_ROOT.
 2. Follow the steps in `skills/clusterpool-cleanup/_preflight-aws-readonly.md` to verify AWS read-only credentials. Store the profile as AWS_READ_PROFILE.
-3. Connect to the collective cluster (soft dependency):
+3. Connect to the collective cluster:
    - Set `KUBECONFIG=~/.kube/collective` and run `oc whoami`.
    - If it fails: run `oc login --web <collective_url from config, or prompt>` and retry.
-   - If still fails: warn "Collective cluster unreachable — ClusterDeployment cross-referencing will be skipped. AWS investigation will still run." and continue.
-   - If available: load all live CDs: `KUBECONFIG=~/.kube/collective kubectl get clusterdeployment --all-namespaces -o json` (no clusterset filter — must protect active clusters regardless of who owns them).
+   - If still fails: STOP — tell the user "ERROR: Collective cluster unreachable. Cannot safely assign confidence levels without ClusterDeployment data — aborting to avoid false HIGH/MEDIUM findings that could lead to deletion of active clusters."
+   - Load all live CDs: `KUBECONFIG=~/.kube/collective bash -c 'set -o pipefail; source <REPO_ROOT>/scripts/lib/collective.sh && get_live_infra_ids'`
+   - If this command fails or returns empty output: STOP — tell the user "ERROR: Could not load ClusterDeployments from collective. Aborting." (no clusterset filter — must protect active clusters regardless of who owns them).
 
 ## Filters
 
@@ -132,7 +133,7 @@ Print a human-readable report to the terminal:
 === investigate-orphans Report ===
 Generated: <timestamp>
 AWS account: <account-id from sts get-caller-identity>
-Collective: <reachable/unreachable>
+Collective: connected
 
 --- HIGH CONFIDENCE ---
 [list each finding with: resource name/type, why orphaned, recommended action]
