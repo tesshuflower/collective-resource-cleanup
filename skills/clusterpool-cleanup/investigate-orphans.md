@@ -20,10 +20,13 @@ Before starting, tell the user:
 
 ## Pre-flight
 
-1. Follow the steps in `skills/clusterpool-cleanup/_preflight.md` to set REPO_ROOT, KUBECONFIG, authenticate, and determine NAMESPACE.
+1. Determine repo root: run `git rev-parse --show-toplevel` — store as REPO_ROOT.
 2. Follow the steps in `skills/clusterpool-cleanup/_preflight-aws-readonly.md` to verify AWS read-only credentials. Store the profile as AWS_READ_PROFILE.
-   - Collective cluster access is a **soft dependency** for this skill: if login fails, warn "Collective cluster unreachable — ClusterDeployment cross-referencing will be skipped. AWS investigation will still run." and continue with NAMESPACE unset.
-   - If available: load live ClusterDeployment list by running `scripts/scan-cds.sh --namespace <NAMESPACE>` for stuck CDs, and `KUBECONFIG=~/.kube/collective kubectl get clusterdeployment --all-namespaces -o json` for all CDs (no clusterset filter — must protect active clusters regardless of who owns them).
+3. Connect to the collective cluster (soft dependency):
+   - Set `KUBECONFIG=~/.kube/collective` and run `oc whoami`.
+   - If it fails: run `oc login --web <collective_url from config, or prompt>` and retry.
+   - If still fails: warn "Collective cluster unreachable — ClusterDeployment cross-referencing will be skipped. AWS investigation will still run." and continue.
+   - If available: load all live CDs: `KUBECONFIG=~/.kube/collective kubectl get clusterdeployment --all-namespaces -o json` (no clusterset filter — must protect active clusters regardless of who owns them).
 
 ## Filters
 
