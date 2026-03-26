@@ -82,7 +82,10 @@ List all S3 buckets: `aws s3 ls --profile <AWS_READ_PROFILE>`
 For each bucket:
 - If named `managed-velero-backups-*`: get tags `aws s3api get-bucket-tagging --bucket <name> --profile <AWS_READ_PROFILE>`
   - Get the `velero.io/infrastructureName` tag value
-  - Check if that infra ID is active (EC2 tags + Route53 for ROSA clusters; collective CDs for Hive clusters)
+  - Check if that infra ID is active:
+    - For `rosa-*` infra IDs: check EC2 tags across **all regions** (do NOT apply the REGION_FILTER — the
+      S3 bucket location is unrelated to where the ROSA cluster ran) AND check Route53 (already global)
+    - For Hive-style infra IDs (e.g. `app-prow-*`): check collective ClusterDeployment list
   - If no active cluster found: flag as likely orphaned
 - For other buckets: use judgment — look at naming patterns, tags, and size/age if relevant
   - If clearly cluster-related but no standardized tags: flag as HUMAN REVIEW
@@ -156,7 +159,27 @@ Write `/tmp/clusterpool-cleanup-manifest.json` using `scripts/lib/manifest.sh` v
 bash <REPO_ROOT>/scripts/lib/manifest.sh manifest_init /tmp/clusterpool-cleanup-manifest.json
 ```
 
-For each finding, add an item:
+For each finding, add an item. With many findings (10+), write all items in a single Python script
+rather than calling `manifest_add_item` once per item (67 subprocess calls is very slow):
+
+```python
+import json, datetime
+
+items = [
+    # one dict per finding
+    {"id": "...", "type": "...", ...},
+]
+manifest = {
+    "version": "1",
+    "created_at": datetime.datetime.utcnow().isoformat() + "Z",
+    "cc_resource_cleanup_run": False,
+    "items": items,
+}
+with open("/tmp/clusterpool-cleanup-manifest.json", "w") as f:
+    json.dump(manifest, f, indent=2)
+```
+
+For small numbers of findings, the CLI dispatch is fine:
 ```bash
 bash <REPO_ROOT>/scripts/lib/manifest.sh manifest_add_item /tmp/clusterpool-cleanup-manifest.json '<json>'
 ```
