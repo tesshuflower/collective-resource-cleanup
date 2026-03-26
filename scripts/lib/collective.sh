@@ -3,10 +3,10 @@
 
 # Get infra IDs of all live (non-DeprovisionFailed) ClusterDeployments across all namespaces.
 # Usage: get_live_infra_ids
-# Prints one infra ID per line.
+# Prints one infra ID per line. Fails loudly if kubectl fails.
 get_live_infra_ids() {
   kubectl get clusterdeployment --all-namespaces \
-    -o json 2>/dev/null \
+    -o json \
     | python3 -c "
 import sys, json
 raw = sys.stdin.read()
@@ -20,6 +20,15 @@ for cd in data.get('items', []):
         if infra_id:
             print(infra_id)
 "
+}
+
+# Check if a single infra ID is in a pre-fetched live infra ID list.
+# Usage: infra_id_is_live <live_ids> <infra_id>
+# Returns 0 if live, 1 if not. Call get_live_infra_ids once and reuse the result.
+infra_id_is_live() {
+  local live_ids="$1"
+  local infra_id="$2"
+  echo "$live_ids" | grep -qxF "$infra_id"
 }
 
 # Get ClusterDeployments in DeprovisionFailed state as JSON array.

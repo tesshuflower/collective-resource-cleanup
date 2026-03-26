@@ -52,7 +52,7 @@ while IFS= read -r region; do
       continue
     fi
     # Skip if this infra ID belongs to a live CD
-    if echo "$live_infra_ids" | grep -qxF "$infra_id"; then
+    if infra_id_is_live "$live_infra_ids" "$infra_id"; then
       continue
     fi
     # Get resources for this infra ID

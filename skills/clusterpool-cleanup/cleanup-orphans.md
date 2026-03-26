@@ -44,7 +44,7 @@ Group findings from the manifest by confidence level:
 [HUMAN REVIEW REQUIRED — no automated safety check]
  [3] ✗  N items  (deselected by default)
 
-Commands: <number> to toggle group, e<number> to expand/collapse, <number><letter> to toggle item, Enter to proceed
+Commands: <number> to toggle group, e<number> to expand/collapse, <number><letter> to toggle item, "go" to proceed
 ```
 
 - HIGH and MEDIUM items are selected by default
@@ -57,7 +57,7 @@ When expanded, show each item:
 - Why flagged as orphaned
 - Recommended action
 
-Handle toggle commands. When user presses Enter, proceed.
+Handle toggle commands. When user types "go", proceed.
 
 ## AWS credentials
 
@@ -78,13 +78,15 @@ For each selected item:
 
 ### Standard items (HIGH / MEDIUM confidence)
 
-Perform a safety re-check immediately before acting:
-- **S3 buckets with velero infra tag**: re-check that the infra ID still has no active EC2 resources
-- **IAM roles/profiles**: re-check that no running EC2 instances use the role
-- **AWS tagged resource groups**: re-check via `scripts/scan-cc-resources.sh --profile <AWS_READ_PROFILE> --namespace <NAMESPACE>` that the infra ID is still not claimed by a live CD
-- **Route53 zones**: re-check that no active cluster uses the zone
+Perform a safety re-check immediately before acting on each item:
+- Re-fetch live infra IDs: `KUBECONFIG=~/.kube/collective bash -c 'source <REPO_ROOT>/scripts/lib/collective.sh && get_live_infra_ids'`
+- Use `infra_id_is_live <live_ids> <infra_id>` to check if the item's infra ID is now live
+- If live: skip and report as "Skipped (state changed at execution time)"
 
-If re-check finds the resource is now in use: skip and report as "Skipped (state changed at execution time)"
+Additional type-specific checks:
+- **S3 buckets with velero infra tag**: also re-check that the infra ID still has no active EC2 resources
+- **IAM roles/profiles**: also re-check that no running EC2 instances use the role
+- **Route53 zones**: also re-check that no active cluster uses the zone
 
 **Deletion commands by type:**
 

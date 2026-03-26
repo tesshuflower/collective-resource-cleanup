@@ -132,7 +132,7 @@ Print a human-readable report to the terminal:
 === investigate-orphans Report ===
 Generated: <timestamp>
 AWS account: <account-id from sts get-caller-identity>
-Collective: <namespace> (<reachable/unreachable>)
+Collective: <reachable/unreachable>
 
 --- HIGH CONFIDENCE ---
 [list each finding with: resource name/type, why orphaned, recommended action]

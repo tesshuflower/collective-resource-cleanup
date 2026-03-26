@@ -123,16 +123,15 @@ LOGDIR=$(mktemp -d /tmp/cc-resource-cleanup-$(date +%Y%m%d)-XXXXXX)
 ```
 "Logs for this run: <LOGDIR>"
 
-Do a single live CD re-check before starting:
-```bash
-KUBECONFIG=~/.kube/collective kubectl get clusterdeployment --all-namespaces \
-  -o jsonpath='{.items[*].spec.clusterMetadata.infraID}'
-```
-Any selected item whose infra_id appears in that output: skip and note as "Skipped (state changed)".
-
 ### Parallel execution
 
-Run hiveutil for confirmed orphans in batches of up to MAX_PARALLEL. For each item, log stdout+stderr to `<LOGDIR>/<infra_id>-<region>.log` and run in the background:
+Run hiveutil for confirmed orphans in batches of up to MAX_PARALLEL. Before each batch, re-fetch live infra IDs:
+```bash
+KUBECONFIG=~/.kube/collective bash -c 'source <REPO_ROOT>/scripts/lib/collective.sh && get_live_infra_ids'
+```
+Use `infra_id_is_live <live_ids> <infra_id>` to skip any item now claimed by a live CD — note as "Skipped (state changed)".
+
+For each confirmed orphan in the batch, log stdout+stderr to `<LOGDIR>/<infra_id>-<region>.log` and run in the background:
 
 ```bash
 AWS_PROFILE=<AWS_WRITE_PROFILE> <HIVEUTIL_PATH> aws-tag-deprovision \
@@ -157,4 +156,5 @@ cc-resource-cleanup summary:
   Resource groups cleaned:     N
   Skipped (state changed):     N
   Failed:                      N
+  Logs:                        <LOGDIR>
 ```
