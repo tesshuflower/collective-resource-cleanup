@@ -39,12 +39,18 @@ Before starting, tell the user:
 Ask the user for optional filters before scanning:
 
 ```
-Optional filters (press Enter to skip):
-  Region filter (substring, e.g. "us-east"):
-  Name filter (substring, e.g. "app-prow"):
+Region filter:
+  1) No filter (scan all regions)
+  2) Enter a region substring (e.g. "us-east")
 ```
+Wait for selection. If 2, ask "Region substring:" and wait for input. Store as REGION_FILTER (empty if 1).
 
-Store as REGION_FILTER and NAME_FILTER (empty if skipped).
+```
+Name filter:
+  1) No filter (match all infra IDs)
+  2) Enter a name substring (e.g. "app-prow")
+```
+Wait for selection. If 2, ask "Name substring:" and wait for input. Store as NAME_FILTER (empty if 1).
 
 Build the scan command:
 ```
