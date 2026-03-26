@@ -127,8 +127,10 @@ LOGDIR=$(mktemp -d /tmp/cc-resource-cleanup-$(date +%Y%m%d)-XXXXXX)
 
 Run hiveutil for confirmed orphans in batches of up to MAX_PARALLEL. Before each batch, re-fetch live infra IDs:
 ```bash
-KUBECONFIG=~/.kube/collective bash -c 'source <REPO_ROOT>/scripts/lib/collective.sh && get_live_infra_ids'
+KUBECONFIG=~/.kube/collective bash -c 'set -o pipefail; source <REPO_ROOT>/scripts/lib/collective.sh && get_live_infra_ids'
 ```
+If this command fails or returns empty output: STOP — do not proceed. Tell the user: "ERROR: Could not re-fetch live ClusterDeployments from collective. Aborting to avoid deleting active cluster resources."
+
 Use `infra_id_is_live <live_ids> <infra_id>` to skip any item now claimed by a live CD — note as "Skipped (state changed)".
 
 For each confirmed orphan in the batch, log stdout+stderr to `<LOGDIR>/<infra_id>-<region>.log` and run in the background:

@@ -79,7 +79,8 @@ For each selected item:
 ### Standard items (HIGH / MEDIUM confidence)
 
 Perform a safety re-check immediately before acting on each item:
-- Re-fetch live infra IDs: `KUBECONFIG=~/.kube/collective bash -c 'source <REPO_ROOT>/scripts/lib/collective.sh && get_live_infra_ids'`
+- Re-fetch live infra IDs: `KUBECONFIG=~/.kube/collective bash -c 'set -o pipefail; source <REPO_ROOT>/scripts/lib/collective.sh && get_live_infra_ids'`
+- If this command fails or returns empty output: STOP — do not proceed. Tell the user: "ERROR: Could not re-fetch live ClusterDeployments from collective. Aborting to avoid deleting active cluster resources."
 - Use `infra_id_is_live <live_ids> <infra_id>` to check if the item's infra ID is now live
 - If live: skip and report as "Skipped (state changed at execution time)"
 

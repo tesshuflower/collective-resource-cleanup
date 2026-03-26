@@ -49,7 +49,7 @@ AWS write profile (AWS_WRITE_PROFILE) is prompted here and stored for reuse.
 
 ### Step 3: investigate-orphans
 
-Follow the `clusterpool-cleanup:investigate-orphans` skill, using the shared NAMESPACE and REPO_ROOT.
+Follow the `clusterpool-cleanup:investigate-orphans` skill, using the shared REPO_ROOT (investigate-orphans does not use NAMESPACE).
 
 AWS read-only profile (AWS_READ_PROFILE) is prompted here and stored for reuse.
 

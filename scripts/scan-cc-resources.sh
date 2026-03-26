@@ -27,7 +27,8 @@ done
 # Get live infra IDs from collective — check all namespaces to protect all active clusters
 live_infra_ids=$(get_live_infra_ids)
 if [[ -z "$live_infra_ids" ]]; then
-  echo "WARNING: no live infra IDs returned from collective (kubectl may be unavailable). All tagged resources will appear as orphaned." >&2
+  echo "ERROR: no live ClusterDeployments found on collective. If active clusters exist, check your kubectl connection. Refusing to continue — treating all AWS resources as orphaned would be destructive." >&2
+  exit 1
 fi
 
 regions=$(get_aws_regions "$PROFILE") || { echo "ERROR: failed to list AWS regions — check credentials for profile '$PROFILE'" >&2; exit 1; }
