@@ -22,3 +22,13 @@ Known patterns indicating a resource is ACTIVE (not orphaned). Claude uses these
 
 - IAM roles attached to running EC2 instances = active
 - Instance profiles associated with running instances = active
+
+## ROSA HCP Clusters (Alphanumeric Infra IDs)
+
+- Alphanumeric infra IDs (e.g. `2lrqfndplc5l3hfj51liso0o540kpm2a`) are ROSA HCP cluster identifiers —
+  they will NOT appear in collective ClusterDeployments (not Hive-managed)
+- Active ROSA HCP clusters have Route53 zones in the form:
+  - `rosa.<cluster-name>.<shard>.openshiftapps.com`
+  - `<cluster-name>.hypershift.local`
+- EC2 instance names follow the pattern `<cluster-name>-workers-*`
+- Always check Route53 before flagging an alphanumeric ID — a matching zone = cluster is still active

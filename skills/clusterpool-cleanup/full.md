@@ -57,8 +57,7 @@ After this step, the manifest is at `/tmp/clusterpool-cleanup-manifest.json` wit
 
 Update the manifest to mark `cc_resource_cleanup_run` as true (since cc-resource-cleanup just ran):
 ```bash
-source <REPO_ROOT>/scripts/lib/manifest.sh
-manifest_set_cc_resource_cleanup_run /tmp/clusterpool-cleanup-manifest.json true
+bash <REPO_ROOT>/scripts/lib/manifest.sh manifest_set_cc_resource_cleanup_run /tmp/clusterpool-cleanup-manifest.json true
 ```
 
 ### Step 4: cleanup-orphans

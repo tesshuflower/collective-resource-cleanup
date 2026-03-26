@@ -149,16 +149,16 @@ Collective: <namespace> (<reachable/unreachable>)
 
 ## Write manifest
 
-Write `/tmp/clusterpool-cleanup-manifest.json` using `scripts/lib/manifest.sh`:
+Write `/tmp/clusterpool-cleanup-manifest.json` using `scripts/lib/manifest.sh` via its CLI dispatch
+(do NOT source the file — sourcing fails in zsh):
 
 ```bash
-source <REPO_ROOT>/scripts/lib/manifest.sh
-manifest_init /tmp/clusterpool-cleanup-manifest.json
+bash <REPO_ROOT>/scripts/lib/manifest.sh manifest_init /tmp/clusterpool-cleanup-manifest.json
 ```
 
 For each finding, add an item:
 ```bash
-manifest_add_item /tmp/clusterpool-cleanup-manifest.json '<json>'
+bash <REPO_ROOT>/scripts/lib/manifest.sh manifest_add_item /tmp/clusterpool-cleanup-manifest.json '<json>'
 ```
 
 Where each item JSON includes:
@@ -174,7 +174,7 @@ Set the `cc_resource_cleanup_run` field to false (cleanup-orphans will check thi
 
 After writing all items:
 ```bash
-manifest_set_cc_resource_cleanup_run /tmp/clusterpool-cleanup-manifest.json false
+bash <REPO_ROOT>/scripts/lib/manifest.sh manifest_set_cc_resource_cleanup_run /tmp/clusterpool-cleanup-manifest.json false
 ```
 
 ## Update knowledge base
