@@ -21,7 +21,7 @@ Before starting, tell the user:
 ## Pre-flight
 
 1. Follow the steps in `skills/clusterpool-cleanup/_preflight.md` to set REPO_ROOT, KUBECONFIG, authenticate, and determine NAMESPACE.
-2. Follow the steps in `skills/clusterpool-cleanup/_preflight-aws-readonly.md` to verify AWS read-only credentials. Store the profile as PROFILE.
+2. Follow the steps in `skills/clusterpool-cleanup/_preflight-aws-readonly.md` to verify AWS read-only credentials. Store the profile as AWS_READ_PROFILE.
    - Collective cluster access is a **soft dependency** for this skill: if login fails, warn "Collective cluster unreachable — ClusterDeployment cross-referencing will be skipped. AWS investigation will still run." and continue with NAMESPACE unset.
    - If available: load live ClusterDeployment list by running `scripts/scan-cds.sh --namespace <NAMESPACE>` for stuck CDs, and `KUBECONFIG=~/.kube/collective kubectl get clusterdeployment --all-namespaces -l cluster.open-cluster-management.io/clusterset=<NAMESPACE> -o json` for all CDs.
 
@@ -46,23 +46,23 @@ Build the set of active infra IDs:
 
 ### AWS sweep
 
-Enumerate all AWS regions: `aws ec2 describe-regions --profile <PROFILE> --output json`
+Enumerate all AWS regions: `aws ec2 describe-regions --profile <AWS_READ_PROFILE> --output json`
 
 For each region, gather:
-- Tag keys matching `kubernetes.io/cluster/*`: `aws resourcegroupstaggingapi get-tag-keys --region <region> --profile <PROFILE> --output json`
+- Tag keys matching `kubernetes.io/cluster/*`: `aws resourcegroupstaggingapi get-tag-keys --region <region> --profile <AWS_READ_PROFILE> --output json`
 - For each infra ID found: check if it's in the active set
 
 For any infra ID NOT in the active set: investigate further
-- How many resources are tagged with it? `aws resourcegroupstaggingapi get-resources --region <region> --profile <PROFILE> --tag-filters Key=kubernetes.io/cluster/<infraID>,Values=owned --output json`
+- How many resources are tagged with it? `aws resourcegroupstaggingapi get-resources --region <region> --profile <AWS_READ_PROFILE> --tag-filters Key=kubernetes.io/cluster/<infraID>,Values=owned --output json`
 - What types of resources? (EC2 instances, VPCs, security groups, EIPs, NAT gateways, load balancers)
 - How old do they appear to be? (look at creation timestamps where available)
 
 ### S3 investigation
 
-List all S3 buckets: `aws s3 ls --profile <PROFILE>`
+List all S3 buckets: `aws s3 ls --profile <AWS_READ_PROFILE>`
 
 For each bucket:
-- If named `managed-velero-backups-*`: get tags `aws s3api get-bucket-tagging --bucket <name> --profile <PROFILE>`
+- If named `managed-velero-backups-*`: get tags `aws s3api get-bucket-tagging --bucket <name> --profile <AWS_READ_PROFILE>`
   - Get the `velero.io/infrastructureName` tag value
   - Check if that infra ID is active (EC2 tags + Route53 for ROSA clusters; collective CDs for Hive clusters)
   - If no active cluster found: flag as likely orphaned
@@ -71,8 +71,8 @@ For each bucket:
 
 ### IAM investigation
 
-List IAM roles: `aws iam list-roles --profile <PROFILE>`
-List instance profiles: `aws iam list-instance-profiles --profile <PROFILE>`
+List IAM roles: `aws iam list-roles --profile <AWS_READ_PROFILE>`
+List instance profiles: `aws iam list-instance-profiles --profile <AWS_READ_PROFILE>`
 
 For each role/profile whose name contains an infra ID pattern:
 - Check if that infra ID is active
@@ -80,7 +80,7 @@ For each role/profile whose name contains an infra ID pattern:
 
 ### Route53 investigation
 
-List hosted zones: `aws route53 list-hosted-zones --profile <PROFILE>`
+List hosted zones: `aws route53 list-hosted-zones --profile <AWS_READ_PROFILE>`
 
 For zones that appear cluster-related (named after an infra ID or cluster):
 - Check if the corresponding cluster is still active

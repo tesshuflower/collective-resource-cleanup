@@ -20,7 +20,7 @@ Before starting, tell the user:
 ## Pre-flight
 
 1. Follow the steps in `skills/clusterpool-cleanup/_preflight.md` to set REPO_ROOT, KUBECONFIG, authenticate, and determine NAMESPACE.
-2. Follow the steps in `skills/clusterpool-cleanup/_preflight-aws-readonly.md` to verify AWS read-only credentials. Store the profile as SCAN_PROFILE.
+2. Follow the steps in `skills/clusterpool-cleanup/_preflight-aws-readonly.md` to verify AWS read-only credentials. Store the profile as AWS_READ_PROFILE.
 3. Check hiveutil: run `which hiveutil 2>/dev/null` to find it automatically.
    - If found: store the path as HIVEUTIL_PATH
    - If not found: ask "Path to hiveutil binary?" — store as HIVEUTIL_PATH
@@ -31,7 +31,7 @@ Before starting, tell the user:
 
 ## Scan
 
-Run: `KUBECONFIG=~/.kube/collective bash <REPO_ROOT>/scripts/scan-cc-resources.sh --profile <SCAN_PROFILE> --namespace <NAMESPACE>`
+Run: `KUBECONFIG=~/.kube/collective bash <REPO_ROOT>/scripts/scan-cc-resources.sh --profile <AWS_READ_PROFILE> --namespace <NAMESPACE>`
 
 This outputs a JSON array of orphaned resource groups. Each entry has: `infra_id`, `region`, `resource_count`.
 
@@ -59,9 +59,7 @@ Handle toggle commands. When user presses Enter, proceed.
 
 ## AWS write credentials
 
-Ask: "AWS profile for deletion (write access, e.g. aws-acm-dev11):"
-Verify: `aws sts get-caller-identity --profile <WRITE_PROFILE>`
-If it fails: "AWS write credentials invalid or expired." — STOP
+Follow the steps in `skills/clusterpool-cleanup/_preflight-aws-write.md` to verify AWS write credentials. Store the profile as AWS_WRITE_PROFILE.
 
 ## Confirm
 
@@ -71,7 +69,7 @@ If n: STOP.
 ## Execute
 
 For each selected resource group, immediately before acting:
-- Re-query live ClusterDeployments: `KUBECONFIG=~/.kube/collective bash <REPO_ROOT>/scripts/scan-cc-resources.sh --profile <SCAN_PROFILE> --namespace <NAMESPACE>`
+- Re-query live ClusterDeployments: `KUBECONFIG=~/.kube/collective bash <REPO_ROOT>/scripts/scan-cc-resources.sh --profile <AWS_READ_PROFILE> --namespace <NAMESPACE>`
 - If the infra_id now appears as live: skip, note as "Skipped (state changed)"
 
 Run hiveutil for each confirmed orphan:
@@ -81,7 +79,7 @@ Run hiveutil for each confirmed orphan:
   --region <region> \
   --loglevel debug \
   --aws-creds-file ~/.aws/credentials \
-  --profile <WRITE_PROFILE>
+  --profile <AWS_WRITE_PROFILE>
 ```
 
 ## Summary

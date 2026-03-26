@@ -61,10 +61,9 @@ Handle toggle commands. When user presses Enter, proceed.
 
 ## AWS credentials
 
-Ask: "AWS profile for deletion (write access, e.g. aws-acm-dev11):" — store as WRITE_PROFILE
-Ask: "AWS read-only profile (for safety re-checks, e.g. aws-acm-dev11-readonly):" — store as READ_PROFILE
-Verify write profile: `aws sts get-caller-identity --profile <WRITE_PROFILE>`
-If it fails: "AWS write credentials invalid or expired." — STOP
+Follow the steps in `skills/clusterpool-cleanup/_preflight-aws-write.md` to verify AWS write credentials. Store the profile as AWS_WRITE_PROFILE.
+
+Follow the steps in `skills/clusterpool-cleanup/_preflight-aws-readonly.md` to verify AWS read-only credentials for safety re-checks. Store the profile as AWS_READ_PROFILE.
 
 ## Confirm
 
@@ -82,7 +81,7 @@ For each selected item:
 Perform a safety re-check immediately before acting:
 - **S3 buckets with velero infra tag**: re-check that the infra ID still has no active EC2 resources
 - **IAM roles/profiles**: re-check that no running EC2 instances use the role
-- **AWS tagged resource groups**: re-check via `scripts/scan-cc-resources.sh --profile <READ_PROFILE> --namespace <NAMESPACE>` that the infra ID is still not claimed by a live CD
+- **AWS tagged resource groups**: re-check via `scripts/scan-cc-resources.sh --profile <AWS_READ_PROFILE> --namespace <NAMESPACE>` that the infra ID is still not claimed by a live CD
 - **Route53 zones**: re-check that no active cluster uses the zone
 
 If re-check finds the resource is now in use: skip and report as "Skipped (state changed at execution time)"
@@ -91,18 +90,18 @@ If re-check finds the resource is now in use: skip and report as "Skipped (state
 
 S3 bucket (OADP velero):
 ```
-aws s3 rb s3://<bucket-name> --force --profile <WRITE_PROFILE>
+aws s3 rb s3://<bucket-name> --force --profile <AWS_WRITE_PROFILE>
 ```
 
 IAM role:
 ```
-aws iam delete-role --role-name <name> --profile <WRITE_PROFILE>
+aws iam delete-role --role-name <name> --profile <AWS_WRITE_PROFILE>
 ```
 (detach policies first if needed)
 
 IAM instance profile:
 ```
-aws iam delete-instance-profile --instance-profile-name <name> --profile <WRITE_PROFILE>
+aws iam delete-instance-profile --instance-profile-name <name> --profile <AWS_WRITE_PROFILE>
 ```
 
 Route53 hosted zone: note the zone ID then delete all records and the zone itself.
@@ -113,7 +112,7 @@ AWS tagged resource group: use hiveutil if available, otherwise flag as requirin
 
 No automated safety check. Delete directly:
 ```
-aws s3 rb s3://<bucket-name> --force --profile <WRITE_PROFILE>
+aws s3 rb s3://<bucket-name> --force --profile <AWS_WRITE_PROFILE>
 ```
 (or appropriate deletion command for the resource type)
 

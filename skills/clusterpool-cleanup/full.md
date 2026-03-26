@@ -28,8 +28,8 @@ Before starting, tell the user:
 Run the common pre-flight once at the start by following `skills/clusterpool-cleanup/_preflight.md`. This sets REPO_ROOT, KUBECONFIG, authenticates, and determines NAMESPACE. Do not re-run pre-flight for each step.
 
 Also track these across steps:
-- **WRITE_PROFILE** — asked in cc-resource-cleanup, reused for cleanup-orphans
-- **READ_PROFILE** — asked in investigate-orphans, reused as safety re-check profile in cleanup-orphans
+- **AWS_WRITE_PROFILE** — asked in cc-resource-cleanup, reused for cleanup-orphans
+- **AWS_READ_PROFILE** — asked in investigate-orphans, reused as safety re-check profile in cleanup-orphans
 
 ## Execution
 
@@ -43,7 +43,7 @@ Follow the `clusterpool-cleanup:cd-cleanup` skill, using the shared NAMESPACE.
 
 Follow the `clusterpool-cleanup:cc-resource-cleanup` skill, using the shared NAMESPACE and REPO_ROOT.
 
-AWS write profile (WRITE_PROFILE) is prompted here and stored for reuse.
+AWS write profile (AWS_WRITE_PROFILE) is prompted here and stored for reuse.
 
 **Confirmation point 2:** before any AWS resource deletions.
 
@@ -51,7 +51,7 @@ AWS write profile (WRITE_PROFILE) is prompted here and stored for reuse.
 
 Follow the `clusterpool-cleanup:investigate-orphans` skill, using the shared NAMESPACE and REPO_ROOT.
 
-AWS read-only profile (READ_PROFILE) is prompted here and stored for reuse.
+AWS read-only profile (AWS_READ_PROFILE) is prompted here and stored for reuse.
 
 After this step, the manifest is at `/tmp/clusterpool-cleanup-manifest.json` with `cc_resource_cleanup_run: true`.
 
@@ -65,8 +65,8 @@ manifest_set_cc_resource_cleanup_run /tmp/clusterpool-cleanup-manifest.json true
 
 Follow the `clusterpool-cleanup:cleanup-orphans` skill, using:
 - Shared NAMESPACE, REPO_ROOT
-- WRITE_PROFILE (already obtained — skip the write profile prompt)
-- READ_PROFILE (already obtained — use as the safety re-check profile)
+- AWS_WRITE_PROFILE (already obtained — skip the write profile prompt)
+- AWS_READ_PROFILE (already obtained — use as the safety re-check profile)
 - Manifest path: `/tmp/clusterpool-cleanup-manifest.json` (skip path prompt)
 
 **Confirmation point 3:** before any deletions.
