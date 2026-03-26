@@ -1,16 +1,11 @@
 #!/usr/bin/env bash
 # Collective cluster query functions.
 
-# Get infra IDs of all live (non-DeprovisionFailed) ClusterDeployments.
-# Usage: get_live_infra_ids [clusterset]
-# If clusterset is provided, restricts to that clusterset label. Otherwise checks all namespaces.
+# Get infra IDs of all live (non-DeprovisionFailed) ClusterDeployments across all namespaces.
+# Usage: get_live_infra_ids
 # Prints one infra ID per line.
 get_live_infra_ids() {
-  local clusterset="${1:-}"
-  local label_selector=()
-  [[ -n "$clusterset" ]] && label_selector=(-l "cluster.open-cluster-management.io/clusterset=${clusterset}")
   kubectl get clusterdeployment --all-namespaces \
-    "${label_selector[@]}" \
     -o json 2>/dev/null \
     | python3 -c "
 import sys, json

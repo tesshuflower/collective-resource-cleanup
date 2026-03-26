@@ -23,7 +23,7 @@ Before starting, tell the user:
 1. Follow the steps in `skills/clusterpool-cleanup/_preflight.md` to set REPO_ROOT, KUBECONFIG, authenticate, and determine NAMESPACE.
 2. Follow the steps in `skills/clusterpool-cleanup/_preflight-aws-readonly.md` to verify AWS read-only credentials. Store the profile as AWS_READ_PROFILE.
    - Collective cluster access is a **soft dependency** for this skill: if login fails, warn "Collective cluster unreachable — ClusterDeployment cross-referencing will be skipped. AWS investigation will still run." and continue with NAMESPACE unset.
-   - If available: load live ClusterDeployment list by running `scripts/scan-cds.sh --namespace <NAMESPACE>` for stuck CDs, and `KUBECONFIG=~/.kube/collective kubectl get clusterdeployment --all-namespaces -l cluster.open-cluster-management.io/clusterset=<NAMESPACE> -o json` for all CDs.
+   - If available: load live ClusterDeployment list by running `scripts/scan-cds.sh --namespace <NAMESPACE>` for stuck CDs, and `KUBECONFIG=~/.kube/collective kubectl get clusterdeployment --all-namespaces -o json` for all CDs (no clusterset filter — must protect active clusters regardless of who owns them).
 
 ## Filters
 
