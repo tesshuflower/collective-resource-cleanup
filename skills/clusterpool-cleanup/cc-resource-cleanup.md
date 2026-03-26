@@ -21,9 +21,9 @@ Before starting, tell the user:
 
 1. Follow the steps in `skills/clusterpool-cleanup/_preflight.md` to set REPO_ROOT, KUBECONFIG, authenticate, and determine NAMESPACE.
 2. Follow the steps in `skills/clusterpool-cleanup/_preflight-aws-readonly.md` to verify AWS read-only credentials. Store the profile as SCAN_PROFILE.
-3. Check hiveutil: look for `~/DEV/openshift/hive/bin/hiveutil`
+3. Check hiveutil: run `which hiveutil 2>/dev/null` to find it automatically.
+   - If found: store the path as HIVEUTIL_PATH
    - If not found: ask "Path to hiveutil binary?" — store as HIVEUTIL_PATH
-   - If found: store path as HIVEUTIL_PATH
 4. Check if hiveutil is up to date:
    - Run `git -C $(dirname $(dirname <HIVEUTIL_PATH>)) status` and check if behind origin
    - If behind: ask "hiveutil is out of date. Update before continuing? (y/n)"
