@@ -21,9 +21,14 @@ Before starting, tell the user:
 
 1. Follow the steps in `skills/clusterpool-cleanup/_preflight.md` to set REPO_ROOT, KUBECONFIG, authenticate, and determine NAMESPACE.
 2. Follow the steps in `skills/clusterpool-cleanup/_preflight-aws-readonly.md` to verify AWS read-only credentials. Store the profile as AWS_READ_PROFILE.
-3. Check hiveutil: run `which hiveutil 2>/dev/null` to find it automatically.
-   - If found: store the path as HIVEUTIL_PATH
-   - If not found: ask "Path to hiveutil binary?" — store as HIVEUTIL_PATH
+3. Find hiveutil:
+   - Check config: read `~/.config/collective-resource-cleanup/config.json` if it exists.
+     - If `hiveutil_path` is set and the file exists: use it as HIVEUTIL_PATH. Tell the user: "Using saved hiveutil: <HIVEUTIL_PATH>"
+     - If not set: run `which hiveutil 2>/dev/null`
+       - If found: store as HIVEUTIL_PATH
+       - If not found: ask "Path to hiveutil binary?" — store as HIVEUTIL_PATH
+     - Offer to save: "Save this hiveutil path to config? (y/n)"
+       - If y: write `hiveutil_path` to `~/.config/collective-resource-cleanup/config.json` (create file and directory if needed, preserve any existing keys).
 4. Check if hiveutil is up to date:
    - Run `git -C $(dirname $(dirname <HIVEUTIL_PATH>)) status` and check if behind origin
    - If behind: ask "hiveutil is out of date. Update before continuing? (y/n)"
