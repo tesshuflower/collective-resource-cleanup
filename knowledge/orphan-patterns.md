@@ -13,6 +13,19 @@ Confirmed patterns indicating a resource is orphaned. Claude uses these to incre
   - No Route53 hosted zone matching `<infraID>` (Route53 is already global)
 - If `infraID` matches Hive naming (e.g. `app-prow-*`): orphaned when not present in collective ClusterDeployment infraID list
 - Confidence: HIGH when both EC2 and Route53 checks are negative
+- **Age assessment**: use `aws s3 ls s3://<bucket> --recursive | sort` to find the newest object
+  date — that is the last time the cluster was backed up. An empty bucket (0 objects) is not
+  inherently safer; a new cluster may not have run its first backup yet. Age is the deciding factor:
+  an old empty bucket (e.g. >2 months with no Route53/EC2) is safe; a recently created empty bucket
+  warrants more caution.
+
+### OCP image registry buckets (`<infraID>-image-registry-<region>-<random>`)
+- Named after the cluster infra ID; identifiable by name even without tags
+- **app-prow-small-aws-42-* and newer clusters**: bucket carries `kubernetes.io/cluster/<infraID>=owned`
+  tag — hiveutil `aws-tag-deprovision` will find and delete it automatically
+- **app-prow-small-aws-41-* and older clusters**: bucket has NO cluster tag — hiveutil will NOT find
+  it. Must be deleted manually with `aws s3 rb --force`.
+- Always verify the infra ID is absent from collective ClusterDeployments before deleting
 
 ### Manually pre-created velero buckets (e.g. `vb-velero-backup`, `se-velero-backup`)
 - No standardized tags — cannot be reliably linked to a cluster

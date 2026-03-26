@@ -51,11 +51,16 @@ Commands: <number> to toggle group, e<number> to expand/collapse, <number><lette
 - HUMAN REVIEW items are deselected by default
 - When a HUMAN REVIEW group is selected: warn "⚠ These items have no automated safety check. Expand (e<N>) to review before proceeding."
 
-When expanded, show each item:
-- Resource name
-- Type
-- Why flagged as orphaned
-- Recommended action
+When expanded, show each item on one line with a consistent format — always include a ✓/✗
+checkbox, a letter label (for toggling via `<group><letter>`), and key fields:
+
+```
+  <N><letter>  ✓/✗  <name>   <region>   <resource-count or size>   <key reason>
+```
+
+Use letters a–z for items within a group. Never use numbers or roman numerals for individual items —
+numbers are reserved for groups. Sub-selections (e.g. a filtered view within a group) should
+re-label items a–z within that view, not carry over the parent group's labels.
 
 Handle toggle commands. When user types "go", proceed.
 
