@@ -25,6 +25,19 @@ Before starting, tell the user:
    - Collective cluster access is a **soft dependency** for this skill: if login fails, warn "Collective cluster unreachable — ClusterDeployment cross-referencing will be skipped. AWS investigation will still run." and continue with NAMESPACE unset.
    - If available: load live ClusterDeployment list by running `scripts/scan-cds.sh --namespace <NAMESPACE>` for stuck CDs, and `KUBECONFIG=~/.kube/collective kubectl get clusterdeployment --all-namespaces -l cluster.open-cluster-management.io/clusterset=<NAMESPACE> -o json` for all CDs.
 
+## Filters
+
+Ask the user for an optional region filter before investigating:
+
+```
+Region filter:
+  1) No filter (scan all regions)
+  2) Enter a region substring (e.g. "us-east")
+```
+Wait for selection. If 2, ask "Region substring:" and wait for input. Store as REGION_FILTER (empty if 1).
+
+Apply throughout the investigation: skip any region that does not contain REGION_FILTER as a substring (if set).
+
 ## Load knowledge base
 
 Read all files in `<REPO_ROOT>/knowledge/`:
@@ -46,7 +59,9 @@ Build the set of active infra IDs:
 
 ### AWS sweep
 
-Enumerate all AWS regions: `aws ec2 describe-regions --profile <AWS_READ_PROFILE> --output json`
+Enumerate all AWS regions: `aws ec2 describe-regions --profile <AWS_READ_PROFILE> --region us-east-1 --output json`
+
+Skip any region that does not contain REGION_FILTER as a substring (if set).
 
 For each region, gather:
 - Tag keys matching `kubernetes.io/cluster/*`: `aws resourcegroupstaggingapi get-tag-keys --region <region> --profile <AWS_READ_PROFILE> --output json`
