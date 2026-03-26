@@ -107,19 +107,48 @@ If n: STOP.
 
 ## Execute
 
-For each selected resource group, immediately before acting:
-- Re-check live ClusterDeployments: `KUBECONFIG=~/.kube/collective kubectl get clusterdeployment --all-namespaces -o jsonpath='{.items[*].spec.clusterMetadata.infraID}'`
-- If the infra_id now appears in that list: skip, note as "Skipped (state changed)"
+### Setup
 
-Run hiveutil for each confirmed orphan:
+Ask the user:
 ```
-<HIVEUTIL_PATH> aws-tag-deprovision \
+Max parallel deletions:
+  1) 5 (default)
+  2) Enter a different number
+```
+Wait for selection. If 2, ask "Max parallel:" and wait for input. Store as MAX_PARALLEL.
+
+Create a log directory and tell the user its location:
+```bash
+LOGDIR=$(mktemp -d /tmp/cc-resource-cleanup-$(date +%Y%m%d)-XXXXXX)
+```
+"Logs for this run: <LOGDIR>"
+
+Do a single live CD re-check before starting:
+```bash
+KUBECONFIG=~/.kube/collective kubectl get clusterdeployment --all-namespaces \
+  -o jsonpath='{.items[*].spec.clusterMetadata.infraID}'
+```
+Any selected item whose infra_id appears in that output: skip and note as "Skipped (state changed)".
+
+### Parallel execution
+
+Run hiveutil for confirmed orphans in batches of up to MAX_PARALLEL. For each item, log stdout+stderr to `<LOGDIR>/<infra_id>-<region>.log` and run in the background:
+
+```bash
+AWS_PROFILE=<AWS_WRITE_PROFILE> <HIVEUTIL_PATH> aws-tag-deprovision \
   kubernetes.io/cluster/<infra_id>=owned \
   --region <region> \
   --loglevel debug \
-  --aws-creds-file ~/.aws/credentials \
-  --profile <AWS_WRITE_PROFILE>
+  > <LOGDIR>/<infra_id>-<region>.log 2>&1 &
 ```
+
+Start up to MAX_PARALLEL jobs simultaneously. Wait for all jobs in the batch to finish before starting the next batch. After each batch completes, report which items finished and whether they succeeded (exit code 0) or failed, e.g.:
+```
+  ✓ app-prow-small-aws-42-6nk95 (us-east-1)
+  ✗ app-prow-small-aws-42-74rpb (us-east-1) — see <LOGDIR>/app-prow-small-aws-42-74rpb-us-east-1.log
+```
+
+After all batches: "Full logs available in <LOGDIR>"
 
 ## Summary
 
