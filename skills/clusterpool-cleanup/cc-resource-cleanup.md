@@ -31,7 +31,25 @@ Before starting, tell the user:
 
 ## Scan
 
-Run: `KUBECONFIG=~/.kube/collective bash <REPO_ROOT>/scripts/scan-cc-resources.sh --profile <AWS_READ_PROFILE> --namespace <NAMESPACE>`
+Ask the user for optional filters before scanning:
+
+```
+Optional filters (press Enter to skip):
+  Region filter (substring, e.g. "us-east"):
+  Name filter (substring, e.g. "app-prow"):
+```
+
+Store as REGION_FILTER and NAME_FILTER (empty if skipped).
+
+Build the scan command:
+```
+KUBECONFIG=~/.kube/collective bash <REPO_ROOT>/scripts/scan-cc-resources.sh \
+  --profile <AWS_READ_PROFILE> \
+  --namespace <NAMESPACE> \
+  [--region-filter <REGION_FILTER>] \
+  [--name-filter <NAME_FILTER>]
+```
+(omit flags whose values are empty)
 
 This outputs a JSON array of orphaned resource groups. Each entry has: `infra_id`, `region`, `resource_count`.
 
@@ -79,7 +97,7 @@ If n: STOP.
 ## Execute
 
 For each selected resource group, immediately before acting:
-- Re-query live ClusterDeployments: `KUBECONFIG=~/.kube/collective bash <REPO_ROOT>/scripts/scan-cc-resources.sh --profile <AWS_READ_PROFILE> --namespace <NAMESPACE>`
+- Re-query live ClusterDeployments using the same scan command (with same filters) used in the Scan step
 - If the infra_id now appears as live: skip, note as "Skipped (state changed)"
 
 Run hiveutil for each confirmed orphan:

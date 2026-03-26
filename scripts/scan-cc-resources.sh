@@ -9,11 +9,15 @@ source "${SCRIPT_DIR}/lib/collective.sh"
 
 PROFILE=""
 NAMESPACE="app"
+REGION_FILTER=""
+NAME_FILTER=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --profile) PROFILE="$2"; shift 2 ;;
     --namespace) NAMESPACE="$2"; shift 2 ;;
+    --region-filter) REGION_FILTER="$2"; shift 2 ;;
+    --name-filter) NAME_FILTER="$2"; shift 2 ;;
     *) echo "Unknown arg: $1" >&2; exit 1 ;;
   esac
 done
@@ -37,8 +41,16 @@ trap 'rm -f "$TMPFILE"' EXIT
 echo "[]" > "$TMPFILE"
 
 while IFS= read -r region; do
+  # Apply region filter if specified
+  if [[ -n "$REGION_FILTER" ]] && [[ "$region" != *"$REGION_FILTER"* ]]; then
+    continue
+  fi
   while IFS= read -r infra_id; do
     [[ -z "$infra_id" ]] && continue
+    # Apply name filter if specified
+    if [[ -n "$NAME_FILTER" ]] && [[ "$infra_id" != *"$NAME_FILTER"* ]]; then
+      continue
+    fi
     # Skip if this infra ID belongs to a live CD
     if echo "$live_infra_ids" | grep -qxF "$infra_id"; then
       continue
