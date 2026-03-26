@@ -2,12 +2,9 @@
 
 Run these steps when the skill requires AWS read-only access:
 
-1. Ask the user to select an AWS read-only profile:
-   ```
-   AWS read-only profile:
-     1) aws-acm-dev11-readonly
-     2) Enter a different profile
-   ```
-   If the user selects 1, use that profile. If the user selects 2, ask: "AWS read-only profile:" and wait for input. Store as READ_PROFILE.
+1. Find available AWS profiles: run `grep '^\[' ~/.aws/config | tr -d '[]' | sed 's/^profile //'`
+   - Present them as a numbered menu and wait for the user to select one.
+   - Note to the user: "A read-only profile is sufficient for this step."
+   - Store the selected profile as READ_PROFILE.
 2. Verify: `aws sts get-caller-identity --profile <READ_PROFILE>`
    - If it fails: "AWS credentials invalid or expired for profile <READ_PROFILE>. Please refresh and retry." — STOP
