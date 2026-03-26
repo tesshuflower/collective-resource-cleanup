@@ -6,7 +6,7 @@
 # Prints one region name per line.
 get_aws_regions() {
   local profile="$1"
-  aws ec2 describe-regions --profile "$profile" --output json \
+  aws ec2 describe-regions --profile "$profile" --region us-east-1 --output json \
     | python3 -c "import sys,json; [print(r['RegionName']) for r in json.load(sys.stdin).get('Regions',[])]"
 }
 

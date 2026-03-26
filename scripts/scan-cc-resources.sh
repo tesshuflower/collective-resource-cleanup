@@ -26,6 +26,12 @@ if [[ -z "$live_infra_ids" ]]; then
   echo "WARNING: no live infra IDs returned from collective (kubectl may be unavailable). All tagged resources will appear as orphaned." >&2
 fi
 
+regions=$(get_aws_regions "$PROFILE") || { echo "ERROR: failed to list AWS regions — check credentials for profile '$PROFILE'" >&2; exit 1; }
+if [[ -z "$regions" ]]; then
+  echo "ERROR: no AWS regions returned for profile '$PROFILE'" >&2
+  exit 1
+fi
+
 TMPFILE=$(mktemp)
 trap 'rm -f "$TMPFILE"' EXIT
 echo "[]" > "$TMPFILE"
@@ -53,6 +59,6 @@ with open(path, "w") as f:
 PYEOF
     fi
   done < <(get_cluster_tag_keys "$PROFILE" "$region")
-done < <(get_aws_regions "$PROFILE")
+done <<< "$regions"
 
 cat "$TMPFILE"
