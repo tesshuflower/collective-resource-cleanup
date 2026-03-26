@@ -83,7 +83,7 @@ Show:
 [LIKELY ACTIVE — large resource counts, no ClusterDeployment found]
  [2] ✗  N resource groups (>10 resources each)  (deselected — expand to review)
 
-Commands: <number> to toggle group, e<number> to expand/collapse, <number><letter> to toggle individual item, Enter to proceed
+Commands: <number> to toggle group, e<number> to expand/collapse, <number><letter> to toggle individual item, "go" to proceed
 ```
 
 - Group 1 (small) is selected by default.
@@ -94,7 +94,7 @@ When expanded, show each resource group:
 - Region
 - Resource count
 
-Handle toggle commands. When user presses Enter, proceed.
+Handle toggle commands. When user types "go", proceed.
 
 ## AWS write credentials
 
@@ -102,14 +102,14 @@ Follow the steps in `skills/clusterpool-cleanup/_preflight-aws-write.md` to veri
 
 ## Confirm
 
-"Proceed with selected deletions? (y/n)"
+List the selected resource groups and tell the user they will be cleaned up using `hiveutil aws-tag-deprovision`. Then ask: "Proceed? (y/n)"
 If n: STOP.
 
 ## Execute
 
 For each selected resource group, immediately before acting:
-- Re-query live ClusterDeployments using the same scan command (with same filters) used in the Scan step
-- If the infra_id now appears as live: skip, note as "Skipped (state changed)"
+- Re-check live ClusterDeployments: `KUBECONFIG=~/.kube/collective kubectl get clusterdeployment --all-namespaces -o jsonpath='{.items[*].spec.clusterMetadata.infraID}'`
+- If the infra_id now appears in that list: skip, note as "Skipped (state changed)"
 
 Run hiveutil for each confirmed orphan:
 ```
