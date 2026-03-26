@@ -22,7 +22,8 @@ Confirmed patterns indicating a resource is orphaned. Claude uses these to incre
 
 - If `infraID` is not present in any live ClusterDeployment on the collective: likely orphaned
 - Cross-reference with `cc-resource-cleanup` results — if hiveutil already ran, these should be gone
-- Confidence: HIGH when infraID has no matching CD and resource count > 0
+- **For confidence classification rules, see `knowledge/resource-classification-rules.md`** — rules
+  are shared with `cc-resource-cleanup` and defined there to avoid duplication.
 
 ## IAM Roles and Instance Profiles
 

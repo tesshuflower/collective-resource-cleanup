@@ -66,11 +66,17 @@ This outputs a JSON array of orphaned resource groups. Each entry has: `infra_id
 
 If the array is empty: say "No orphaned AWS resource groups found." — STOP
 
+## Load knowledge base
+
+Read `<REPO_ROOT>/knowledge/resource-classification-rules.md` — this defines the shared rules for
+classifying resource groups as HIGH confidence vs HUMAN REVIEW. Apply these rules when presenting
+the cleanup plan below.
+
 ## Present cleanup plan
 
-Split results into two groups based on resource count:
-- **Small (≤10 resources)**: likely leftover tag stubs from a deprovisioned cluster. Selected for deletion by default.
-- **Large (>10 resources)**: likely an active or manually-created cluster not tracked by the collective. Deselected by default and hidden — user must explicitly expand to review.
+Split results into two groups using the rules from `knowledge/resource-classification-rules.md`:
+- **HIGH confidence**: no active CD, and either ≤10 resources OR >10 resources with no running EC2 instances. Selected for deletion by default.
+- **HUMAN REVIEW**: no active CD, >10 resources, and has running EC2 instances. Deselected by default and hidden — user must explicitly expand to review.
 
 Show:
 
@@ -78,16 +84,16 @@ Show:
 === cc-resource-cleanup Plan ===
 
 [HIGH CONFIDENCE — tagged resources with no active ClusterDeployment]
- [1] ✓  N resource groups (≤10 resources each) across M regions
+ [1] ✓  N resource groups across M regions
 
-[LIKELY ACTIVE — large resource counts, no ClusterDeployment found]
- [2] ✗  N resource groups (>10 resources each)  (deselected — expand to review)
+[HUMAN REVIEW — large resource counts with running EC2, no ClusterDeployment found]
+ [2] ✗  N resource groups  (deselected — expand to review)
 
 Commands: <number> to toggle group, e<number> to expand/collapse, <number><letter> to toggle individual item, "go" to proceed
 ```
 
-- Group 1 (small) is selected by default.
-- Group 2 (large) is deselected and collapsed by default. When the user expands it (e2), show each item with infra ID, region, and resource count, and warn: "⚠ These have large resource counts and may be active clusters not registered with the collective. Verify before selecting."
+- Group 1 is selected by default.
+- Group 2 is deselected and collapsed by default. When the user expands it (e2), show each item with infra ID, region, resource count, and whether EC2 instances were found, and warn: "⚠ These have running EC2 instances and may be active clusters not registered with the collective. Verify before selecting."
 
 When expanded, show each resource group:
 - Infra ID
