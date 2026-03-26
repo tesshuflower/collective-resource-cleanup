@@ -20,8 +20,8 @@ done
 
 [[ -z "$PROFILE" ]] && { echo "ERROR: --profile required" >&2; exit 1; }
 
-# Get live infra IDs from collective
-live_infra_ids=$(get_live_infra_ids "$NAMESPACE")
+# Get live infra IDs from collective — check all namespaces to protect all active clusters
+live_infra_ids=$(get_live_infra_ids)
 if [[ -z "$live_infra_ids" ]]; then
   echo "WARNING: no live infra IDs returned from collective (kubectl may be unavailable). All tagged resources will appear as orphaned." >&2
 fi

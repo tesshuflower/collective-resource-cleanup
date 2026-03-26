@@ -39,16 +39,26 @@ If the array is empty: say "No orphaned AWS resource groups found." — STOP
 
 ## Present cleanup plan
 
+Split results into two groups based on resource count:
+- **Small (≤10 resources)**: likely leftover tag stubs from a deprovisioned cluster. Selected for deletion by default.
+- **Large (>10 resources)**: likely an active or manually-created cluster not tracked by the collective. Deselected by default and hidden — user must explicitly expand to review.
+
 Show:
 
 ```
 === cc-resource-cleanup Plan ===
 
 [HIGH CONFIDENCE — tagged resources with no active ClusterDeployment]
- [1] ✓  N orphaned resource groups across M regions
+ [1] ✓  N resource groups (≤10 resources each) across M regions
+
+[LIKELY ACTIVE — large resource counts, no ClusterDeployment found]
+ [2] ✗  N resource groups (>10 resources each)  (deselected — expand to review)
 
 Commands: <number> to toggle group, e<number> to expand/collapse, <number><letter> to toggle individual item, Enter to proceed
 ```
+
+- Group 1 (small) is selected by default.
+- Group 2 (large) is deselected and collapsed by default. When the user expands it (e2), show each item with infra ID, region, and resource count, and warn: "⚠ These have large resource counts and may be active clusters not registered with the collective. Verify before selecting."
 
 When expanded, show each resource group:
 - Infra ID
