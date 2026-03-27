@@ -54,11 +54,41 @@ kubectl get clusterprovision -n <cd-namespace>
 
 **InfraID across attempts**: each attempt runs the installer from scratch and may generate a new
 infraID. The CD's `spec.clusterMetadata.infraID` is updated to the most recent successful (or
-in-progress) attempt's infraID. Previous failed attempts' infraIDs are abandoned — their AWS
-resources are genuine orphans.
+in-progress) attempt's infraID. Previous failed attempts' infraIDs are carried as `spec.prevInfraID`
+on the next ClusterProvision — the installer cleans them up at the start of the next attempt (see
+"How Hive Cleans Up Failed Provision Resources" below).
 
 **Race window**: a `provisioning`-stage ClusterProvision may have an infraID before the CD does.
 The `get_live_infra_ids` function only reads from ClusterDeployments, so resources tagged with a
 very new infraID could be missed during this brief window. In practice the window is short and
 low-resource-count results are unlikely to cause harm, but be aware of it when scanning shortly
 after new CDs are created.
+
+## How Hive Cleans Up Failed Provision Resources (confirmed from source)
+
+Source: `pkg/installmanager/installmanager.go` and `pkg/controller/clusterdeployment/clusterprovisions.go`
+
+Hive does NOT clean up failed provision AWS resources immediately after failure. The cleanup
+happens at the **start of the next install attempt**:
+
+1. Provision N fails → `reconcileFailedProvision` waits backoff, then calls `clearOutCurrentProvision`
+   (only clears the K8s ProvisionRef, no AWS cleanup)
+2. When creating Provision N+1, Hive sets `spec.prevInfraID = Provision N's infraID` on the new
+   ClusterProvision object
+3. Inside the installer pod, `InstallManager.cleanupFailedInstall` runs `openshift-install destroy`
+   for `prevInfraID` **before** starting the new install attempt
+
+Consequences for resource classification:
+
+- **infraID is `prevInfraID` of an in-progress provision**: AWS resources are being cleaned up
+  by the running installer. Do NOT manually clean — hiveutil would race with the installer.
+- **infraID belongs to a CD with `ProvisionStopped = true`**: no further retries will run, so
+  Hive will NOT clean these resources until the CD itself is deprovisioned. These are legitimate
+  targets for manual cleanup, but note that `get_live_infra_ids` does NOT include them (the CD
+  still exists but its current infraID may differ from the stuck failed attempt's infraID).
+- **No active CD exists for this infraID at all**: genuine orphan — clean up.
+
+`get_live_infra_ids` captures only `spec.clusterMetadata.infraID` of active (non-DeprovisionFailed)
+CDs. It does NOT capture `prevInfraID` values from in-progress ClusterProvisions. To fully protect
+in-flight cleanup, you would need to query each active CD namespace for non-failed ClusterProvisions
+and check their `spec.prevInfraID`.

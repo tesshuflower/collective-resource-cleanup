@@ -112,6 +112,12 @@ When a group is expanded, show each cluster as a lettered entry with its regions
 
 Format resource types as `type ×N`, omitting `×1`. Sort types by count descending.
 
+If a region filter was applied, add a note at the top of the expanded group:
+```
+   ⚠ Region filter active (us-) — resources in other regions are not shown and will not be cleaned.
+     A cluster may have additional orphaned resources outside the scanned regions.
+```
+
 Toggle commands operate at the cluster (infra_id) level:
 - `<number>` toggles the whole group
 - `e<number>` expands/collapses a group
