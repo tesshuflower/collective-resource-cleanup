@@ -157,6 +157,11 @@ LOGDIR=$(mktemp -d /tmp/cc-resource-cleanup-$(date +%Y%m%d)-XXXXXX)
 
 ### Parallel execution
 
+Each cluster (infra_id) requires one hiveutil job **per region** where it has resources — hiveutil
+targets a specific region's AWS APIs. A cluster with resources in us-east-1 and us-west-2 produces
+two jobs. This is expected, not a duplicate — each job cleans different resources (e.g. IAM profiles
+in us-east-1, VPC/subnets in us-west-2). Tell the user the total job count upfront so it's clear.
+
 Run hiveutil for confirmed orphans in batches of up to MAX_PARALLEL. Before each batch, re-fetch live infra IDs:
 ```bash
 KUBECONFIG=~/.kube/collective bash -c 'set -o pipefail; source <REPO_ROOT>/scripts/lib/collective.sh && get_live_infra_ids'
