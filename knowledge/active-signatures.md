@@ -7,10 +7,19 @@ Known patterns indicating a resource is ACTIVE (not orphaned). Claude uses these
 - Any CD in `Provisioned` state with a non-empty infraID is active
 - CDs in `Provisioning` state less than 24 hours old are likely still provisioning (not stuck)
 - CDs in `DeprovisionFailed` state have AWS credentials issues — AWS resources may still exist
+- **InfraID is not stable**: each failed provision attempt runs the installer from scratch and may
+  generate a new infraID. `spec.clusterMetadata.infraID` only reflects the most recent attempt.
+  Previous attempts' infraIDs are no longer tracked by the CD and their AWS resources are genuine
+  orphans — correct to clean up. See ClusterProvisions in `knowledge/hive-resource-structure.md`.
+- **CDs with no infraID**: a CD in early provisioning may not yet have an infraID set. Its
+  in-flight AWS resources will not appear in `get_live_infra_ids` output and are at risk of being
+  flagged as orphans during the window before the infraID is written back.
 
 ## S3 Buckets
 
-- Buckets with recent (< 7 days) write activity may be from an in-progress cluster backup
+- Buckets with recent (< 7 days) write activity **must be flagged HUMAN_REVIEW**, even if no
+  active EC2 or Route53 is found — a backup agent or controller may still be running against a
+  cluster that is no longer registered with the collective. Include the last-write date in reason.
 - `velero.io/infrastructureName` tag pointing to an infraID with live EC2 resources = active
 
 ## AWS Tagged Resources

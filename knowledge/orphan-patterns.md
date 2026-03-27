@@ -37,6 +37,10 @@ Confirmed patterns indicating a resource is orphaned. Claude uses these to incre
 - Cross-reference with `cc-resource-cleanup` results — if hiveutil already ran, these should be gone
 - **For confidence classification rules, see `knowledge/resource-classification-rules.md`** — rules
   are shared with `cc-resource-cleanup` and defined there to avoid duplication.
+- **Failed ClusterProvision infraIDs**: each failed provision attempt may generate a distinct
+  infraID that is never written to the CD (or is later overwritten). These are genuine orphans —
+  the installer created AWS resources and the attempt failed without cleaning them. The CD has no
+  record of the old infraID, so it will not appear in `get_live_infra_ids`. Correct to clean up.
 
 ## IAM Roles and Instance Profiles
 
