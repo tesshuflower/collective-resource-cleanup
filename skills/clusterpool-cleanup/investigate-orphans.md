@@ -87,7 +87,13 @@ For each bucket:
     - For `rosa-*` infra IDs: check EC2 tags across **all regions** (do NOT apply the REGION_FILTER — the
       S3 bucket location is unrelated to where the ROSA cluster ran) AND check Route53 (already global)
     - For Hive-style infra IDs (e.g. `app-prow-*`): check collective ClusterDeployment list
-  - If no active cluster found: flag as likely orphaned
+  - If no active cluster found:
+    - Check when the bucket was last written to:
+      `aws s3api list-objects-v2 --bucket <name> --query "sort_by(Contents, &LastModified)[-1].LastModified" --output text --profile <AWS_READ_PROFILE>`
+    - If last write was within the last **7 days**: flag as **HUMAN_REVIEW** — something is still
+      actively writing backups despite no active cluster found (stale backup agent or controller
+      still running). Include the last-write date in the reason.
+    - If last write was more than 7 days ago (or bucket is empty): flag as likely orphaned (HIGH)
 - For other buckets: use judgment — look at naming patterns, tags, and size/age if relevant
   - If clearly cluster-related but no standardized tags: flag as HUMAN REVIEW
 
