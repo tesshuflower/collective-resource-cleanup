@@ -59,18 +59,30 @@ while IFS= read -r region; do
     # Get resources for this infra ID
     resources=$(get_infra_resources "$PROFILE" "$region" "$infra_id" 2>/dev/null) || continue
     [[ -z "$resources" ]] && continue
-    count=$(echo "$resources" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))") || continue
-    if [[ "${count:-0}" -gt 0 ]]; then
-      python3 - "$TMPFILE" "$infra_id" "$region" "$count" <<'PYEOF'
-import json, sys
-path, infra_id, region, count = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4])
+    RESOURCES_JSON="$resources" python3 - "$TMPFILE" "$infra_id" "$region" <<'PYEOF'
+import json, sys, os
+
+def resource_type(arn):
+    parts = arn.split(':')
+    if len(parts) >= 6:
+        resource = parts[5]
+        return resource.split('/')[0] if '/' in resource else resource
+    return 'unknown'
+
+arns = json.loads(os.environ['RESOURCES_JSON'])
+path, infra_id, region = sys.argv[1], sys.argv[2], sys.argv[3]
+if not arns:
+    sys.exit(0)
+types = {}
+for arn in arns:
+    rt = resource_type(arn)
+    types[rt] = types.get(rt, 0) + 1
 with open(path) as f:
     items = json.load(f)
-items.append({"infra_id": infra_id, "region": region, "resource_count": count})
+items.append({"infra_id": infra_id, "region": region, "resource_count": len(arns), "resource_types": types})
 with open(path, "w") as f:
     json.dump(items, f, indent=2)
 PYEOF
-    fi
   done < <(get_cluster_tag_keys "$PROFILE" "$region")
 done <<< "$regions"
 

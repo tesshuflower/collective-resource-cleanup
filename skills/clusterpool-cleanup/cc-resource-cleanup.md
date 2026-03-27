@@ -62,7 +62,7 @@ KUBECONFIG=~/.kube/collective bash <REPO_ROOT>/scripts/scan-cc-resources.sh \
 ```
 (omit flags whose values are empty)
 
-This outputs a JSON array of orphaned resource groups. Each entry has: `infra_id`, `region`, `resource_count`.
+This outputs a JSON array of orphaned resource groups. Each entry has: `infra_id`, `region`, `resource_count`, `resource_types` (map of resource type to count, e.g. `{"subnet": 8, "vpc": 1}`).
 
 If the array is empty: say "No orphaned AWS resource groups found." — STOP
 
@@ -74,9 +74,14 @@ the cleanup plan below.
 
 ## Present cleanup plan
 
-Split results into two groups using the rules from `knowledge/resource-classification-rules.md`:
-- **HIGH confidence**: no active CD, and either ≤10 resources OR >10 resources with no running EC2 instances. Selected for deletion by default.
-- **HUMAN REVIEW**: no active CD, >10 resources, and has running EC2 instances. Deselected by default and hidden — user must explicitly expand to review.
+Group scan results by `infra_id` — a single cluster may have resources in multiple regions (e.g.
+IAM instance profiles appear in us-east-1 regardless of where the cluster ran). Each infra_id is
+one logical entry; regions are sub-items.
+
+Classify each infra_id using the rules from `knowledge/resource-classification-rules.md` (apply
+across the combined resource count across all regions for that infra_id):
+- **HIGH confidence**: no active CD, and either ≤10 total resources OR >10 with no running EC2. Selected by default.
+- **HUMAN REVIEW**: no active CD, >10 total resources, and has running EC2. Deselected by default and hidden.
 
 Show:
 
@@ -84,21 +89,33 @@ Show:
 === cc-resource-cleanup Plan ===
 
 [HIGH CONFIDENCE — tagged resources with no active ClusterDeployment]
- [1] ✓  N resource groups across M regions
+ [1] ✓  N clusters (across M regions)
 
 [HUMAN REVIEW — large resource counts with running EC2, no ClusterDeployment found]
- [2] ✗  N resource groups  (deselected — expand to review)
+ [2] ✗  N clusters  (deselected — expand to review)
 
 Commands: <number> to toggle group, e<number> to expand/collapse, <number><letter> to toggle individual item, "go" to proceed
 ```
 
 - Group 1 is selected by default.
-- Group 2 is deselected and collapsed by default. When the user expands it (e2), show each item with infra ID, region, resource count, and whether EC2 instances were found, and warn: "⚠ These have running EC2 instances and may be active clusters not registered with the collective. Verify before selecting."
+- Group 2 is deselected and collapsed by default. When the user expands it (e2), warn: "⚠ These have running EC2 instances and may be active clusters not registered with the collective. Verify before selecting."
 
-When expanded, show each resource group:
-- Infra ID
-- Region
-- Resource count
+When a group is expanded, show each cluster as a lettered entry with its regions indented below:
+
+```
+   a  ✓  app-prow-small-aws-42-4h47s
+             us-east-1   2 resources  (instance-profile ×2)
+             us-west-2  10 resources  (subnet ×8, vpc ×1, internet-gateway ×1)
+   b  ✓  app-prow-small-aws-42-6nk95
+             us-east-1   2 resources  (instance-profile ×2)
+```
+
+Format resource types as `type ×N`, omitting `×1`. Sort types by count descending.
+
+Toggle commands operate at the cluster (infra_id) level:
+- `<number>` toggles the whole group
+- `e<number>` expands/collapses a group
+- `<number><letter>` toggles an individual cluster
 
 Handle toggle commands. When user types "go", proceed.
 
