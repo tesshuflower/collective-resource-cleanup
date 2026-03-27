@@ -71,10 +71,12 @@ For each region, gather:
 - Tag keys matching `kubernetes.io/cluster/*`: `aws resourcegroupstaggingapi get-tag-keys --region <region> --profile <AWS_READ_PROFILE> --output json`
 - For each infra ID found: check if it's in the active set
 
-For any infra ID NOT in the active set: investigate further
+For any infra ID NOT in the active set: investigate further using the rules in
+`knowledge/resource-classification-rules.md`. Specifically:
 - How many resources are tagged with it? `aws resourcegroupstaggingapi get-resources --region <region> --profile <AWS_READ_PROFILE> --tag-filters Key=kubernetes.io/cluster/<infraID>,Values=owned --output json`
 - What types of resources? (EC2 instances, VPCs, security groups, EIPs, NAT gateways, load balancers)
-- How old do they appear to be? (look at creation timestamps where available)
+- Apply Step 2 from `resource-classification-rules.md`: look up the IAM master instance profile for
+  every non-active infraID — `aws iam get-instance-profile --instance-profile-name <infraID>-master-profile --profile <AWS_READ_PROFILE>` — and use `CreateDate` as the primary age signal. Skip infraIDs whose profile is ≤ 24h old (possibly in-flight). This applies regardless of region filter since IAM is global.
 
 ### S3 investigation
 
@@ -99,10 +101,14 @@ For each bucket:
 
 ### IAM investigation
 
+Note: the per-infraID `get-instance-profile` CreateDate check is already performed as part of the
+AWS sweep above (Step 2 of `resource-classification-rules.md`). The following is for discovering
+IAM resources that may not appear in the tag sweep (e.g. profiles/roles whose tags weren't indexed).
+
 List IAM roles: `aws iam list-roles --profile <AWS_READ_PROFILE>`
 List instance profiles: `aws iam list-instance-profiles --profile <AWS_READ_PROFILE>`
 
-For each role/profile whose name contains an infra ID pattern:
+For each role/profile whose name contains an infra ID pattern not already covered by the sweep:
 - Check if that infra ID is active
 - If not: flag as potentially orphaned (MEDIUM confidence — IAM names aren't always deterministic)
 

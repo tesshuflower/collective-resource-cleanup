@@ -86,4 +86,41 @@ PYEOF
   done < <(get_cluster_tag_keys "$PROFILE" "$region")
 done <<< "$regions"
 
+# For each unique infra_id, look up IAM instance profile CreateDate (IAM is global — always
+# us-east-1 regardless of region filter). This is the primary age signal used for classification.
+python3 - "$TMPFILE" "$PROFILE" <<'PYEOF'
+import json, subprocess, sys
+
+path, profile = sys.argv[1], sys.argv[2]
+with open(path) as f:
+    items = json.load(f)
+
+seen = {}
+for item in items:
+    infra_id = item["infra_id"]
+    if infra_id in seen:
+        item["iam_create_date"] = seen[infra_id]
+        continue
+    try:
+        result = subprocess.run(
+            ["aws", "iam", "get-instance-profile",
+             "--instance-profile-name", f"{infra_id}-master-profile",
+             "--profile", profile,
+             "--output", "json"],
+            capture_output=True, text=True, timeout=15
+        )
+        if result.returncode == 0:
+            data = json.loads(result.stdout)
+            create_date = data["InstanceProfile"]["CreateDate"]
+        else:
+            create_date = None
+    except Exception:
+        create_date = None
+    seen[infra_id] = create_date
+    item["iam_create_date"] = create_date
+
+with open(path, "w") as f:
+    json.dump(items, f, indent=2)
+PYEOF
+
 cat "$TMPFILE"
