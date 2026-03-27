@@ -86,38 +86,69 @@ PYEOF
   done < <(get_cluster_tag_keys "$PROFILE" "$region")
 done <<< "$regions"
 
-# For each unique infra_id, look up IAM instance profile CreateDate (IAM is global — always
-# us-east-1 regardless of region filter). This is the primary age signal used for classification.
-python3 - "$TMPFILE" "$PROFILE" <<'PYEOF'
-import json, subprocess, sys
+# For each unique infra_id: look up IAM instance profile CreateDate and update history file.
+# IAM is global — works regardless of region filter.
+# History file tracks first_seen/last_seen for age confirmation when IAM is unavailable.
+HISTORY_FILE="${HOME}/.cache/collective-resource-cleanup/known-infra-ids.json"
+mkdir -p "$(dirname "$HISTORY_FILE")"
+python3 - "$TMPFILE" "$PROFILE" "$HISTORY_FILE" <<'PYEOF'
+import json, subprocess, sys, os
+from datetime import datetime, timezone, timedelta
 
-path, profile = sys.argv[1], sys.argv[2]
+path, profile, history_path = sys.argv[1], sys.argv[2], sys.argv[3]
+now = datetime.now(timezone.utc)
+now_str = now.isoformat()
+
 with open(path) as f:
     items = json.load(f)
 
-seen = {}
+# Load history file
+if os.path.exists(history_path):
+    with open(history_path) as f:
+        history = json.load(f)
+else:
+    history = {}
+
+# Expire entries not seen in 120 days
+history = {
+    k: v for k, v in history.items()
+    if datetime.fromisoformat(v["last_seen"]) > now - timedelta(days=120)
+}
+
+# Look up IAM CreateDate and update history for each unique infra_id
+iam_cache = {}
 for item in items:
     infra_id = item["infra_id"]
-    if infra_id in seen:
-        item["iam_create_date"] = seen[infra_id]
-        continue
-    try:
-        result = subprocess.run(
-            ["aws", "iam", "get-instance-profile",
-             "--instance-profile-name", f"{infra_id}-master-profile",
-             "--profile", profile,
-             "--output", "json"],
-            capture_output=True, text=True, timeout=15
-        )
-        if result.returncode == 0:
-            data = json.loads(result.stdout)
-            create_date = data["InstanceProfile"]["CreateDate"]
-        else:
-            create_date = None
-    except Exception:
-        create_date = None
-    seen[infra_id] = create_date
-    item["iam_create_date"] = create_date
+
+    # IAM lookup (once per infra_id)
+    if infra_id not in iam_cache:
+        try:
+            result = subprocess.run(
+                ["aws", "iam", "get-instance-profile",
+                 "--instance-profile-name", f"{infra_id}-master-profile",
+                 "--profile", profile,
+                 "--output", "json"],
+                capture_output=True, text=True, timeout=15
+            )
+            if result.returncode == 0:
+                data = json.loads(result.stdout)
+                iam_cache[infra_id] = data["InstanceProfile"]["CreateDate"]
+            else:
+                iam_cache[infra_id] = None
+        except Exception:
+            iam_cache[infra_id] = None
+    item["iam_create_date"] = iam_cache[infra_id]
+
+    # Update history file
+    if infra_id in history:
+        history[infra_id]["last_seen"] = now_str
+    else:
+        history[infra_id] = {"first_seen": now_str, "last_seen": now_str}
+    item["first_seen"] = history[infra_id]["first_seen"]
+
+# Save updated history
+with open(history_path, "w") as f:
+    json.dump(history, f, indent=2)
 
 with open(path, "w") as f:
     json.dump(items, f, indent=2)

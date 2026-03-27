@@ -62,7 +62,7 @@ KUBECONFIG=~/.kube/collective bash <REPO_ROOT>/scripts/scan-cc-resources.sh \
 ```
 (omit flags whose values are empty)
 
-This outputs a JSON array of orphaned resource groups. Each entry has: `infra_id`, `region`, `resource_count`, `resource_types` (map of resource type to count, e.g. `{"subnet": 8, "vpc": 1}`), and `iam_create_date` (ISO8601 timestamp from the infra ID's IAM master instance profile, or `null` if not found).
+This outputs a JSON array of orphaned resource groups. Each entry has: `infra_id`, `region`, `resource_count`, `resource_types` (map of resource type to count, e.g. `{"subnet": 8, "vpc": 1}`), `iam_create_date` (ISO8601 timestamp from the infra ID's IAM master instance profile, or `null` if not found), and `first_seen` (ISO8601 timestamp from the history file — when this infra_id was first observed in any scan).
 
 If the array is empty: say "No orphaned AWS resource groups found." — STOP
 
@@ -78,29 +78,30 @@ Group scan results by `infra_id` — a single cluster may have resources in mult
 IAM instance profiles appear in us-east-1 regardless of where the cluster ran). Each infra_id is
 one logical entry; regions are sub-items.
 
-Classify each infra_id using the rules from `knowledge/resource-classification-rules.md` (Steps 1–3,
-applied across the combined resource count and `iam_create_date` across all regions for that infra_id):
-- **SKIP (possibly in-flight)**: `iam_create_date` ≤ 24h ago — do not show in plan at all.
-- **HIGH confidence**: no active CD, IAM age confirmed old (or profile not found), and either ≤10
-  total resources OR >10 with no running EC2. Selected by default.
-- **HUMAN REVIEW**: no active CD, >10 total resources, and has running EC2. Deselected by default and hidden.
+Classify each infra_id using the rules from `knowledge/resource-classification-rules.md`, applied
+across the combined `resource_types`, `iam_create_date`, and `first_seen` across all regions for
+that infra_id. The scan script has already updated the history file with `first_seen`/`last_seen`.
 
 Show:
 
 ```
 === cc-resource-cleanup Plan ===
 
-[HIGH CONFIDENCE — tagged resources with no active ClusterDeployment]
+[HIGH CONFIDENCE — age confirmed, no EC2]
  [1] ✓  N clusters (across M regions)
 
-[HUMAN REVIEW — large resource counts with running EC2, no ClusterDeployment found]
- [2] ✗  N clusters  (deselected — expand to review)
+[POSSIBLY ORPHANED — no EC2, but not yet confirmed old enough — re-run later to promote to HIGH]
+ [2] ✗  N clusters  (deselected)
+
+[HUMAN REVIEW — EC2 instances present]
+ [3] ✗  N clusters  (deselected — expand to review)
 
 Commands: <number> to toggle group, e<number> to expand/collapse, <number><letter> to toggle individual item, "go" to proceed
 ```
 
-- Group 1 is selected by default.
-- Group 2 is deselected and collapsed by default. When the user expands it (e2), warn: "⚠ These have running EC2 instances and may be active clusters not registered with the collective. Verify before selecting."
+- Group 1 (HIGH) is selected by default.
+- Group 2 (POSSIBLY ORPHANED) is deselected and collapsed by default.
+- Group 3 (HUMAN REVIEW) is deselected and collapsed by default. When the user expands it (e3), warn: "⚠ These have EC2 instances and may be active or hibernated clusters. Verify before selecting."
 
 When a group is expanded, show each cluster as a lettered entry with its regions indented below:
 
@@ -181,6 +182,25 @@ Start up to MAX_PARALLEL jobs simultaneously. Wait for all jobs in the batch to 
 ```
 
 After all batches: "Full logs available in <LOGDIR>"
+
+### Update history file
+
+For each infra_id that was successfully cleaned (exit code 0), remove it from
+`~/.cache/collective-resource-cleanup/known-infra-ids.json`:
+
+```python
+import json, os
+
+history_path = os.path.expanduser("~/.cache/collective-resource-cleanup/known-infra-ids.json")
+cleaned_ids = [...]  # list of successfully cleaned infra_ids
+if os.path.exists(history_path):
+    with open(history_path) as f:
+        history = json.load(f)
+    for infra_id in cleaned_ids:
+        history.pop(infra_id, None)
+    with open(history_path, "w") as f:
+        json.dump(history, f, indent=2)
+```
 
 ## Summary
 
