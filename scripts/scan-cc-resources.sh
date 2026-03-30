@@ -88,7 +88,7 @@ done <<< "$regions"
 
 # For each unique infra_id: look up IAM instance profile CreateDate and update history file.
 # IAM is global — works regardless of region filter.
-# History file tracks first_seen/last_seen for age confirmation when IAM is unavailable.
+# History file tracks first_seen_as_candidate/last_seen_as_candidate for null-IAM infraIDs.
 HISTORY_FILE="${HOME}/.cache/collective-resource-cleanup/known-infra-ids.json"
 mkdir -p "$(dirname "$HISTORY_FILE")"
 python3 - "$TMPFILE" "$PROFILE" "$HISTORY_FILE" <<'PYEOF'
@@ -109,10 +109,22 @@ if os.path.exists(history_path):
 else:
     history = {}
 
-# Expire entries not seen in 120 days
+# Migrate old-format entries (first_seen/last_seen → first_seen_as_candidate/last_seen_as_candidate)
+migrated = {}
+for k, v in history.items():
+    if "last_seen_as_candidate" not in v and "last_seen" in v:
+        migrated[k] = {
+            "first_seen_as_candidate": v.get("first_seen", v["last_seen"]),
+            "last_seen_as_candidate": v["last_seen"],
+        }
+    else:
+        migrated[k] = v
+history = migrated
+
+# Expire entries not seen as candidates in 120 days
 history = {
     k: v for k, v in history.items()
-    if datetime.fromisoformat(v["last_seen"]) > now - timedelta(days=120)
+    if datetime.fromisoformat(v["last_seen_as_candidate"]) > now - timedelta(days=120)
 }
 
 # Look up IAM CreateDate and update history for each unique infra_id
@@ -139,12 +151,17 @@ for item in items:
             iam_cache[infra_id] = None
     item["iam_create_date"] = iam_cache[infra_id]
 
-    # Update history file
-    if infra_id in history:
-        history[infra_id]["last_seen"] = now_str
+    # Only track in history when IAM is null — these are entries where we believe
+    # cleanup is needed but cannot confirm age from IAM. When IAM is found, age is
+    # confirmed directly from CreateDate and history is not relevant.
+    if iam_cache[infra_id] is None:
+        if infra_id in history:
+            history[infra_id]["last_seen_as_candidate"] = now_str
+        else:
+            history[infra_id] = {"first_seen_as_candidate": now_str, "last_seen_as_candidate": now_str}
+        item["first_seen_as_candidate"] = history[infra_id]["first_seen_as_candidate"]
     else:
-        history[infra_id] = {"first_seen": now_str, "last_seen": now_str}
-    item["first_seen"] = history[infra_id]["first_seen"]
+        item["first_seen_as_candidate"] = None
 
 # Save updated history
 with open(history_path, "w") as f:

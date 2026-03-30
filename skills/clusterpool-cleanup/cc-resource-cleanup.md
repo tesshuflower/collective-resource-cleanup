@@ -62,7 +62,7 @@ KUBECONFIG=~/.kube/collective bash <REPO_ROOT>/scripts/scan-cc-resources.sh \
 ```
 (omit flags whose values are empty)
 
-This outputs a JSON array of orphaned resource groups. Each entry has: `infra_id`, `region`, `resource_count`, `resource_types` (map of resource type to count, e.g. `{"subnet": 8, "vpc": 1}`), `iam_create_date` (ISO8601 timestamp from the infra ID's IAM master instance profile, or `null` if not found), and `first_seen` (ISO8601 timestamp from the history file — when this infra_id was first observed in any scan).
+This outputs a JSON array of orphaned resource groups. Each entry has: `infra_id`, `region`, `resource_count`, `resource_types` (map of resource type to count, e.g. `{"subnet": 8, "vpc": 1}`), `iam_create_date` (ISO8601 timestamp from the infra ID's IAM master instance profile, or `null` if not found), and `first_seen_as_candidate` (ISO8601 timestamp from the history file — when this infra_id was first seen with null IAM and believed to need cleanup, or `null` if IAM was found).
 
 If the array is empty: say "No orphaned AWS resource groups found." — STOP
 
@@ -79,8 +79,8 @@ IAM instance profiles appear in us-east-1 regardless of where the cluster ran). 
 one logical entry; regions are sub-items.
 
 Classify each infra_id using the rules from `knowledge/resource-classification-rules.md`, applied
-across the combined `resource_types`, `iam_create_date`, and `first_seen` across all regions for
-that infra_id. The scan script has already updated the history file with `first_seen`/`last_seen`.
+across the combined `resource_types`, `iam_create_date`, and `first_seen_as_candidate` across all regions for
+that infra_id. The scan script has already updated the history file with `first_seen_as_candidate`/`last_seen_as_candidate`.
 
 Show:
 
