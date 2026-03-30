@@ -109,18 +109,6 @@ if os.path.exists(history_path):
 else:
     history = {}
 
-# Migrate old-format entries (first_seen/last_seen → first_seen_as_candidate/last_seen_as_candidate)
-migrated = {}
-for k, v in history.items():
-    if "last_seen_as_candidate" not in v and "last_seen" in v:
-        migrated[k] = {
-            "first_seen_as_candidate": v.get("first_seen", v["last_seen"]),
-            "last_seen_as_candidate": v["last_seen"],
-        }
-    else:
-        migrated[k] = v
-history = migrated
-
 # Expire entries not seen as candidates in 120 days
 history = {
     k: v for k, v in history.items()
