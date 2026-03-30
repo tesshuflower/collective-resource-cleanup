@@ -90,12 +90,19 @@ For each bucket:
       S3 bucket location is unrelated to where the ROSA cluster ran) AND check Route53 (already global)
     - For Hive-style infra IDs (e.g. `app-prow-*`): check collective ClusterDeployment list
   - If no active cluster found:
-    - Check when the bucket was last written to:
-      `aws s3api list-objects-v2 --bucket <name> --query "sort_by(Contents, &LastModified)[-1].LastModified" --output text --profile <AWS_READ_PROFILE>`
-    - If last write was within the last **7 days**: flag as **HUMAN_REVIEW** — something is still
-      actively writing backups despite no active cluster found (stale backup agent or controller
-      still running). Include the last-write date in the reason.
-    - If last write was more than 7 days ago (or bucket is empty): flag as likely orphaned (HIGH)
+    - Determine the bucket's effective age using whichever date is most recent:
+      - Last write date (from `aws s3api list-objects-v2 --bucket <name> --query "sort_by(Contents, &LastModified)[-1].LastModified" --output text --profile <AWS_READ_PROFILE>`)
+      - Bucket creation date (from `aws s3api list-buckets`, already fetched above)
+      - If the bucket has objects: effective_date = max(last_write, creation_date)
+      - If the bucket is empty: effective_date = creation_date
+      - Note: empty does not mean never written to — objects may have been deleted
+    - If effective_date is within the last **7 days**: flag as **HUMAN_REVIEW** — bucket is
+      too recent to confidently classify; include the effective date and its source in the reason
+    - If effective_date is more than 7 days ago: check Route53 for an active zone matching
+      the cluster name (active ROSA HCP clusters always have a
+      `rosa.<cluster-name>.<shard>.openshiftapps.com` zone)
+      - If a matching zone exists: flag as **HUMAN_REVIEW** — cluster may still be active
+      - If no matching zone: flag as likely orphaned (HIGH)
 - For other buckets: use judgment — look at naming patterns, tags, and size/age if relevant
   - If clearly cluster-related but no standardized tags: flag as HUMAN REVIEW
 

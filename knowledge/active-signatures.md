@@ -39,9 +39,13 @@ Known patterns indicating a resource is ACTIVE (not orphaned). Claude uses these
 - Example: CD `app-prow-small-aws-42-sptgz` creates zone `app-prow-small-aws-421-west2-pthps.dev11...`
   where `pthps` is random and unrelated to `sptgz`
 - To determine which CD owns a zone: check the CallerReference field
-  - Format: `<cd-name>-<random>` (e.g. `app-prow-small-aws-42-sptgz-88jbv`)
-  - If CallerReference contains a CD name that is in the active list → zone is ACTIVE
+  - Hive clusters: `<infra_id>-<random>` (e.g. `app-prow-small-aws-42-sptgz-88jbv`)
+    - If the infra_id portion is in the active live list → zone is ACTIVE
+  - Terraform/fips clusters: `terraform-<timestamp>` (e.g. `terraform-20250613170841435500000003`)
+    - These clusters are not created by Hive; the timestamp is the zone creation time
+    - Check if corresponding cluster name appears in any live CD to confirm orphaned
 - Never flag a zone as orphaned based on the DNS suffix alone
+- ALWAYS check CallerReference — zone names for active clusters often look like orphaned cluster names
 
 ## ROSA HCP Clusters (Alphanumeric Infra IDs)
 
