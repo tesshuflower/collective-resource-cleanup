@@ -162,6 +162,8 @@ targets a specific region's AWS APIs. A cluster with resources in us-east-1 and 
 two jobs. This is expected, not a duplicate — each job cleans different resources (e.g. IAM profiles
 in us-east-1, VPC/subnets in us-west-2). Tell the user the total job count upfront so it's clear.
 
+Build the list of `infra_id:region` pairs to run. **Do not use `jobs` as a variable name** — it conflicts with the bash `jobs` builtin and will silently corrupt the array. Use `job_list`, `deprovision_jobs`, or similar instead.
+
 Run hiveutil for confirmed orphans in batches of up to MAX_PARALLEL. Before each batch, re-fetch live infra IDs:
 ```bash
 KUBECONFIG=~/.kube/collective bash -c 'set -o pipefail; source <REPO_ROOT>/scripts/lib/collective.sh && get_live_infra_ids'
