@@ -76,7 +76,7 @@ For any infra ID NOT in the active set: investigate further using the rules in
 - How many resources are tagged with it? `aws resourcegroupstaggingapi get-resources --region <region> --profile <AWS_READ_PROFILE> --tag-filters Key=kubernetes.io/cluster/<infraID>,Values=owned --output json`
 - What types of resources? (EC2 instances, VPCs, security groups, EIPs, NAT gateways, load balancers)
 - Apply Step 2 from `resource-classification-rules.md`: look up the IAM master instance profile for
-  every non-active infraID — `aws iam get-instance-profile --instance-profile-name <infraID>-master-profile --profile <AWS_READ_PROFILE>` — and use `CreateDate` as the primary age signal. Skip infraIDs whose profile is ≤ 24h old (possibly in-flight). This applies regardless of region filter since IAM is global.
+  every non-active infraID — `aws iam get-instance-profile --instance-profile-name <infraID>-master-profile --profile <AWS_READ_PROFILE>` — and use `CreateDate` as the primary age signal. Skip infraIDs whose profile is ≤ 12h old (possibly in-flight). This applies regardless of region filter since IAM is global.
 
 ### S3 investigation
 
@@ -140,13 +140,13 @@ You are not limited to the resource types listed above. If you discover other po
 ### Confidence levels
 
 For AWS tagged resource groups, apply the rules from `knowledge/resource-classification-rules.md`.
-In particular: **HIGH confidence requires a confirmed IAM `CreateDate` > 24h** (Step 2). If the
+In particular: **HIGH confidence requires a confirmed IAM `CreateDate` > 12h** (Step 2). If the
 IAM profile is not found (null), the age is unknown — classify as **POSSIBLY ORPHANED** at most,
 never HIGH. The history file (Step 2b) is maintained by `cc-resource-cleanup`'s scan script; since
 `investigate-orphans` does not update it, do not rely on it for promotion to HIGH here.
 
 For all other resource types (S3, IAM roles, Route53), assign one of:
-- **HIGH**: IAM CreateDate confirmed > 24h AND multiple independent checks confirm orphaned (e.g. no EC2 + no Route53 + no CD)
+- **HIGH**: IAM CreateDate confirmed > 12h AND multiple independent checks confirm orphaned (e.g. no EC2 + no Route53 + no CD)
 - **POSSIBLY ORPHANED**: no EC2/active signals found but age not confirmed via IAM
 - **MEDIUM**: Partial evidence (e.g. no CD but Route53 still present — cluster may be mid-decommission)
 - **HUMAN REVIEW**: Cannot be safely auto-categorized (e.g. manually-named buckets with no cluster tags)

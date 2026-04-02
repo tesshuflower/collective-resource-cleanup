@@ -19,8 +19,8 @@ Look up the IAM master instance profile directly (IAM is global — works regard
 aws iam get-instance-profile --instance-profile-name <infraID>-master-profile --profile <PROFILE>
 ```
 
-- **Found, `CreateDate` ≤ 24h ago**: cluster may still be provisioning → **SKIP**
-- **Found, `CreateDate` > 24h ago**: age confirmed via IAM → proceed to Step 3
+- **Found, `CreateDate` ≤ 12h ago**: cluster may still be provisioning → **SKIP**
+- **Found, `CreateDate` > 12h ago**: age confirmed via IAM → proceed to Step 3
 - **Not found**: no IAM age signal → check history file (Step 2b)
 
 ### Step 2b — History file fallback (when IAM not found)
@@ -37,8 +37,8 @@ Update `last_seen_as_candidate` to now for any infraID already in the file. Add 
 both `first_seen_as_candidate` and `last_seen_as_candidate` set to now. Expire entries where
 `last_seen_as_candidate` > 120 days ago.
 
-- **`first_seen_as_candidate` > 24h ago**: seen as a cleanup candidate long enough → proceed to Step 3
-- **`first_seen_as_candidate` ≤ 24h ago, or not in history (just added)**: age not yet confirmed → **POSSIBLY ORPHANED**
+- **`first_seen_as_candidate` > 12h ago**: seen as a cleanup candidate long enough → proceed to Step 3
+- **`first_seen_as_candidate` ≤ 12h ago, or not in history (just added)**: age not yet confirmed → **POSSIBLY ORPHANED**
 
 ### Step 3 — Check for EC2 instances
 
@@ -54,7 +54,7 @@ Check `resource_types` from the scan output for the presence of `instance`:
 | HIGH | Age confirmed (IAM or history as candidate), no EC2 | Selected |
 | POSSIBLY ORPHANED | No EC2, but not seen long enough as a cleanup candidate — re-run later | Deselected |
 | HUMAN REVIEW | EC2 present | Deselected |
-| SKIP | Active CD, or IAM ≤ 24h old | Not shown |
+| SKIP | Active CD, or IAM ≤ 12h old | Not shown |
 
 ## History file
 
@@ -85,4 +85,4 @@ Format:
 - Hibernated clusters have stopped (not terminated) instances — they correctly show `instance`
   and land in HUMAN REVIEW.
 - POSSIBLY ORPHANED entries (null IAM) graduate to HIGH on a future scan once
-  `first_seen_as_candidate` > 24h ago. Users can re-run the scan later to act on them.
+  `first_seen_as_candidate` > 12h ago. Users can re-run the scan later to act on them.
